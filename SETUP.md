@@ -1,38 +1,42 @@
-# OneAtlas Model Comparison
+# The AI Signal — Model Comparison
 
-This repository contains the original The AI Signal landing page and the model-comparison experience at `/compare`.
+The project uses **Next.js 16 App Router, React 19, TypeScript, and Tailwind CSS 4**. The landing page is available at `/`; model comparison is at `/compare`.
 
-## Run locally
+## Requirements and local setup
 
-1. Install Node.js 20 or newer.
-2. Install dependencies:
+Use Node.js 20.9 or newer.
 
-   ```bash
-   npm install
-   ```
+```bash
+npm install
+npm run dev
+```
 
-3. Start the Vite development server:
+Open http://localhost:3000 and visit `/compare`.
 
-   ```bash
-   npm run dev
-   ```
+## Build and checks
 
-4. Open the local URL shown by Vite and visit `/compare`.
+```bash
+npm run build
+npm run lint
+```
+
+The Next.js production build includes TypeScript validation. CI runs the production build and lint command for pull requests and pushes.
 
 ## Comparison behavior
 
-- The comparison page uses React state and a local demonstration catalog in `src/Compare.jsx`.
-- Select up to four models. The selector searches model names, labs, and providers; selected models can be removed.
-- The `models` query parameter is read on page load. Unknown IDs are ignored, duplicate IDs are removed, and an explicitly empty or invalid selection stays empty instead of silently reverting to defaults.
-- Changes are reflected in the URL using a short debounce and `history.replaceState`, without a page reload. Browser `popstate` events resynchronize the selected models.
-- The comparison matrix preserves readable columns with horizontal scrolling on small screens.
-- The estimator uses the formula `(input tokens / 1,000,000 × input price) + (output tokens / 1,000,000 × output price)`. Number inputs are bounded to the same ranges as their sliders.
-- The CI workflow in `.github/workflows/frontend-ci.yml` installs dependencies and runs the production build on pull requests targeting `main`.
+- Select and remove up to four models; the comparison matrix and cost calculator appear only with at least two selected models.
+- Search includes model name, lab, provider, and model ID.
+- The `models` query parameter is parsed on load. Unknown IDs are ignored, duplicates are removed, and a present-but-empty parameter remains empty.
+- Selection updates the URL with `history.replaceState` without reloading; `popstate` restores selection when browser navigation changes the URL.
+- The matrix scrolls horizontally on narrow screens.
+- Defaults: 5,000,000 input tokens and 1,000,000 output tokens. Slider and number inputs share state and bounds (0–100,000,000 tokens).
+- Formula: `(input tokens / 1,000,000 × input price per million) + (output tokens / 1,000,000 × output price per million)`.
+- The lowest estimated bill is marked and the difference to the next-cheapest selected model is shown.
 
-## Data and limitations
+## Data limitations
 
-The catalog, provider lists, release dates, prices, and benchmark scores are local demonstration data, not a live model/provider feed. Do not use them for purchasing decisions without independent verification. The cost estimate excludes caching discounts, taxes, and provider-specific fees.
+Model records, prices, provider lists, release dates, and benchmark scores are illustrative assessment data, not verified current facts or a live provider feed. Cost estimates exclude caching discounts, taxes, and provider-specific fees. Verify current details with providers before relying on them.
 
-## Current implementation stack
+## Deployment
 
-The current app is Vite + React 18 + JavaScript + standalone CSS. The assessment brief names Next.js 16 App Router, React 19, TypeScript, and Tailwind CSS. This implementation has **not** been migrated to that required stack yet, so it should not be described as fully compliant with the assessment's stack/TypeScript criteria.
+Connect the repository to Vercel and use the default Next.js build settings. The current deployment must be rebuilt from the updated branch before its behavior can be considered verified.
