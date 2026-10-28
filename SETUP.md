@@ -4,7 +4,7 @@ The project uses **Next.js 16 App Router, React 19, TypeScript, and Tailwind CSS
 
 ## Requirements and local setup
 
-Use Node.js 20.9 or newer.
+Use Node.js 20.19 or newer in the 20.x series, or Node.js 22.12 or newer.
 
 ```bash
 npm install
