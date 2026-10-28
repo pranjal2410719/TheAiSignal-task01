@@ -28,17 +28,23 @@ const models = [
     inputPrice: 3, outputPrice: 15, cacheRead: 0.3, intelligence: 51.2, coding: 58.7, agentic: 49.3,
     providers: ["AWS Bedrock", "GCP Vertex", "OpenRouter"], released: "Jun 20, 2024", weights: "Closed"
   },
+  {
+    id: "google/gemini-2.5-flash", name: "Gemini 2.5 Flash", lab: "Google", mark: "✦",
+    description: "Demo entry for a fast multimodal model with broad provider availability.",
+    context: 1000000, outputLimit: 65536, input: ["Text", "Image", "Audio", "Video"], output: ["Text"],
+    inputPrice: 0.3, outputPrice: 2.5, cacheRead: 0.075, intelligence: 44.8, coding: 48.2, agentic: 42.1,
+    providers: ["Google AI Studio", "GCP Vertex", "OpenRouter"], released: "May 20, 2025", weights: "Closed"
+  },
 ];
 
 const fmtTokens = (n) => n >= 1000000 ? `${(n / 1000000).toLocaleString("en-US", { maximumFractionDigits: 2 })}M` : `${Math.round(n / 1000)}K`;
 const money = (n) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 3 })}`;
-const readInitial = () => {
-  const ids = new URLSearchParams(window.location.search).get("models");
-  if (ids) {
-    const valid = ids.split(",").filter((id) => models.some((model) => model.id === id));
-    if (valid.length) return valid.slice(0, 4);
-  }
-  return [models[0].id, models[1].id];
+const readSelectionFromUrl = () => {
+  const params = new URLSearchParams(window.location.search);
+  if (!params.has("models")) return [models[0].id, models[1].id];
+  const ids = params.get("models") || "";
+  return [...new Set(ids.split(",").filter(Boolean)
+    .filter((id) => models.some((model) => model.id === id)))].slice(0, 4);
 };
 
 function BrandMark({ model, small = false }) {
@@ -50,7 +56,7 @@ function MetricBar({ value, max = 60 }) {
 }
 
 export default function ComparePage() {
-  const [selectedIds, setSelectedIds] = useState(readInitial);
+  const [selectedIds, setSelectedIds] = useState(readSelectionFromUrl);
   const [query, setQuery] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [inputTokens, setInputTokens] = useState(5000000);
@@ -58,7 +64,7 @@ export default function ComparePage() {
   const [activeTab, setActiveTab] = useState("overview");
   const [copied, setCopied] = useState(false);
   const selected = useMemo(() => selectedIds.map((id) => models.find((model) => model.id === id)).filter(Boolean), [selectedIds]);
-  const available = useMemo(() => models.filter((model) => !selectedIds.includes(model.id) && `${model.name} ${model.lab}`.toLowerCase().includes(query.toLowerCase())), [query, selectedIds]);
+  const available = useMemo(() => models.filter((model) => !selectedIds.includes(model.id) && `${model.name} ${model.lab} ${model.providers.join(" ")}`.toLowerCase().includes(query.toLowerCase())), [query, selectedIds]);
   const costs = useMemo(() => selected.map((model) => ({
     id: model.id,
     total: (inputTokens / 1000000) * model.inputPrice + (outputTokens / 1000000) * model.outputPrice,
@@ -67,10 +73,15 @@ export default function ComparePage() {
 
   useEffect(() => {
     const url = new URL(window.location.href);
-    if (selectedIds.length) url.searchParams.set("models", selectedIds.join(","));
-    else url.searchParams.delete("models");
+    url.searchParams.set("models", selectedIds.join(","));
     window.history.replaceState({}, "", url);
   }, [selectedIds]);
+
+  useEffect(() => {
+    const syncFromUrl = () => setSelectedIds(readSelectionFromUrl());
+    window.addEventListener("popstate", syncFromUrl);
+    return () => window.removeEventListener("popstate", syncFromUrl);
+  }, []);
 
   function toggleModel(id) {
     setSelectedIds((current) => current.includes(id)
@@ -96,9 +107,9 @@ export default function ComparePage() {
       <header className="compare-topbar">
         <a className="compare-brand" href="/" aria-label="The AI Signal home"><span className="compare-brand-icon"><AudioLines size={19} /></span><span>OneAtlas</span></a>
         <nav className="compare-nav" aria-label="Main navigation">
-          <a className="active" href="/compare">Models</a><a href="#rankings">Rankings</a><a href="#benchmarks">Benchmarks</a><a href="#labs">Labs</a><a href="#providers">Providers</a>
+          <a className="active" href="/compare">Models</a><a href="#comparison">Compare</a><a href="#estimator">Cost estimator</a>
         </nav>
-        <button className="global-search" onClick={() => { setPickerOpen(true); document.getElementById("model-search")?.focus(); }}><Search size={15} /><span>Search models, labs, providers</span><kbd><Command size={11} /> K</kbd></button>
+        <button className="global-search" aria-label="Search models, labs, and providers" onClick={() => { setPickerOpen(true); document.getElementById("model-search")?.focus(); }}><Search size={15} /><span>Search models, labs, providers</span><kbd><Command size={11} /> K</kbd></button>
       </header>
 
       <main className="compare-main">
@@ -115,7 +126,12 @@ export default function ComparePage() {
             <div className="overview-stat"><span>Providers</span><strong>{new Set(models.flatMap((model) => model.providers)).size.toLocaleString("en-US")}</strong><small>API access points</small></div>
             <div className="overview-chart">
               <div className="chart-heading"><span>Capability coverage</span><span className="chart-caption">Across the catalog</span></div>
-              {[["Tool calling",66],["Reasoning",50],["Vision input",49],["Open weights",44]].map(([label, value]) => <div className="coverage-row" key={label}><div><span>{label}</span><small>{value}%</small></div><MetricBar value={value} max={100} /></div>)}
+              {[
+                ["Vision input", (models.filter((model) => model.input.includes("Image")).length / models.length) * 100],
+                ["Audio input", (models.filter((model) => model.input.includes("Audio")).length / models.length) * 100],
+                ["Open weights", (models.filter((model) => model.weights === "Open").length / models.length) * 100],
+                ["Multiple providers", (models.filter((model) => model.providers.length > 1).length / models.length) * 100],
+              ].map(([label, value]) => <div className="coverage-row" key={label}><div><span>{label}</span><small>{Math.round(value)}%</small></div><MetricBar value={value} max={100} /></div>)}
             </div>
           </aside>
         </section>
