@@ -84,7 +84,7 @@ export function ModelComparison() {
   ];
 
   return <main id="top" className="page-shell">
-    <header className="topbar"><BrandLogo /><nav className="nav" aria-label="Main navigation"><a href="#selector">Models</a><a href="#comparison">Compare</a><a href="#estimator">Cost estimator</a></nav></header>
+    <header className="topbar"><BrandLogo /><nav className="nav" aria-label="Main navigation"><a href="#selector">Models</a><a href={selectedModels.length >= MIN_SELECTED_MODELS ? "#comparison" : "#selector"}>Compare</a><a href={selectedModels.length >= MIN_SELECTED_MODELS ? "#estimator" : "#selector"}>Cost estimator</a></nav></header>
     <div className="wrap">
       <section className="hero">
         <div><p className="kicker">MODEL INTELLIGENCE, IN ONE PLACE</p><h1>Compare AI models<span className="text-emerald-300">.</span></h1><p className="lead">Explore capabilities, technical limits, sample pricing, and estimated monthly spend side by side.</p><p className="muted mt-4 text-xs">Assessment demo catalog · Not a live model or pricing feed</p></div>
