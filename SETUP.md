@@ -16,11 +16,12 @@ Open http://localhost:3000 and visit `/compare`.
 ## Build and checks
 
 ```bash
+npm test
 npm run build
 npm run lint
 ```
 
-The Next.js production build includes TypeScript validation. CI runs the production build and lint command for pull requests and pushes.
+The unit tests cover URL selection parsing and monthly cost calculations. The Next.js production build includes TypeScript validation. CI runs unit tests, the production build, and lint for pull requests and pushes.
 
 ## Comparison behavior
 
