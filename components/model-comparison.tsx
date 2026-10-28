@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Copy, Search, X } from "lucide-react";
 import { CostCalculator } from "@/components/cost-calculator";
@@ -22,22 +22,30 @@ export function ModelComparison() {
   const [selectedIds, setSelectedIds] = useState<string[]>(DEFAULT_MODEL_IDS);
   const [query, setQuery] = useState("");
   const [copied, setCopied] = useState(false);
-  const [urlInitialized, setUrlInitialized] = useState(false);
+  const urlInitialized = useRef(false);
 
   useEffect(() => {
-    setSelectedIds(selectionFromSearch(window.location.search));
-    setUrlInitialized(true);
-    const onPopState = () => setSelectedIds(selectionFromSearch(window.location.search));
+    const frameId = window.requestAnimationFrame(() => {
+      setSelectedIds(selectionFromSearch(window.location.search));
+      urlInitialized.current = true;
+    });
+    const onPopState = () => {
+      urlInitialized.current = true;
+      setSelectedIds(selectionFromSearch(window.location.search));
+    };
     window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.removeEventListener("popstate", onPopState);
+    };
   }, []);
 
   useEffect(() => {
-    if (!urlInitialized) return;
+    if (!urlInitialized.current) return;
     const url = new URL(window.location.href);
     url.searchParams.set("models", selectedIds.join(","));
     window.history.replaceState(null, "", url);
-  }, [selectedIds, urlInitialized]);
+  }, [selectedIds]);
 
   const selectedModels = useMemo(() => selectedIds.flatMap((id) => {
     const model = models.find((candidate) => candidate.id === id);
