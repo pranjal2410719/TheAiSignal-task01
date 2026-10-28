@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estimateMonthlyCost, parseModelSelection } from "@/lib/comparison";
+import { estimateMonthlyCost, parseModelSelection } from "../lib/comparison";
 
 describe("parseModelSelection", () => {
   const validIds = ["alpha", "beta", "gamma", "delta", "epsilon"];
