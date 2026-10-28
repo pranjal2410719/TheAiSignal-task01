@@ -1,0 +1,30 @@
+name: Frontend CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, feat/oneatlas-model-comparison]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install
+      - name: Check whitespace errors
+        run: git diff --check "${{ github.event.pull_request.base.sha || 'HEAD^' }}" HEAD
+      - name: Run unit tests
+        run: npm test
+      - name: Build application
+        run: npm run build
+      - name: Lint application
+        run: npm run lint
