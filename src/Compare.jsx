@@ -110,9 +110,9 @@ export default function ComparePage() {
             <div className="intro-actions"><a className="button-light" href="#comparison">Compare models <ArrowRight size={16} /></a><a className="button-quiet" href="#estimator">Estimate cost <ArrowDownUp size={15} /></a></div>
           </div>
           <aside className="overview-panel">
-            <div className="overview-stat"><span>Models in this demo</span><strong>1,123</strong><small>Across leading AI labs</small></div>
-            <div className="overview-stat"><span>Labs</span><strong>78</strong><small>Research organizations</small></div>
-            <div className="overview-stat"><span>Providers</span><strong>220</strong><small>API access points</small></div>
+            <div className="overview-stat"><span>Models in this demo</span><strong>{models.length.toLocaleString("en-US")}</strong><small>Across leading AI labs</small></div>
+            <div className="overview-stat"><span>Labs</span><strong>{new Set(models.map((model) => model.lab)).size.toLocaleString("en-US")}</strong><small>Research organizations</small></div>
+            <div className="overview-stat"><span>Providers</span><strong>{new Set(models.flatMap((model) => model.providers)).size.toLocaleString("en-US")}</strong><small>API access points</small></div>
             <div className="overview-chart">
               <div className="chart-heading"><span>Capability coverage</span><span className="chart-caption">Across the catalog</span></div>
               {[["Tool calling",66],["Reasoning",50],["Vision input",49],["Open weights",44]].map(([label, value]) => <div className="coverage-row" key={label}><div><span>{label}</span><small>{value}%</small></div><MetricBar value={value} max={100} /></div>)}
