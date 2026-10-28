@@ -7,12 +7,10 @@ import { CostCalculator } from "@/components/cost-calculator";
 import { BrandLogo } from "@/components/brand-logo";
 import { DEFAULT_MODEL_IDS, MAX_SELECTED_MODELS, MIN_SELECTED_MODELS, models } from "@/lib/models";
 import type { ModelRecord } from "@/lib/types";
+import { parseModelSelection } from "@/lib/comparison";
 
 function selectionFromSearch(search: string): string[] {
-  const params = new URLSearchParams(search);
-  if (!params.has("models")) return DEFAULT_MODEL_IDS;
-  const validIds = new Set(models.map((model) => model.id));
-  return [...new Set((params.get("models") ?? "").split(",").filter((id) => validIds.has(id)))].slice(0, MAX_SELECTED_MODELS);
+  return parseModelSelection(search, models.map((model) => model.id), DEFAULT_MODEL_IDS, MAX_SELECTED_MODELS);
 }
 
 const money = (value: number) => value.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 3 });
