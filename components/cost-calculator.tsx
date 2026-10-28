@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { ModelRecord } from "@/lib/types";
+import { estimateMonthlyCost } from "@/lib/comparison";
 
 const MAX_TOKENS = 100_000_000;
 const STEP_TOKENS = 100_000;
@@ -13,7 +14,7 @@ export function CostCalculator({ selectedModels }: { selectedModels: ModelRecord
   const [outputTokens, setOutputTokens] = useState(1_000_000);
   const costs = useMemo(() => selectedModels.map((model) => ({
     model,
-    total: inputTokens / 1_000_000 * model.inputPricePerMillion + outputTokens / 1_000_000 * model.outputPricePerMillion,
+    total: estimateMonthlyCost(inputTokens, outputTokens, model.inputPricePerMillion, model.outputPricePerMillion),
   })).sort((a, b) => a.total - b.total), [selectedModels, inputTokens, outputTokens]);
   const cheapest = costs[0];
   const nextCheapest = costs[1];
