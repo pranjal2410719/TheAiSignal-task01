@@ -72,9 +72,13 @@ export default function ComparePage() {
   const lowestCost = Math.min(...costs.map((cost) => cost.total));
 
   useEffect(() => {
-    const url = new URL(window.location.href);
-    url.searchParams.set("models", selectedIds.join(","));
-    window.history.replaceState({}, "", url);
+    // Debounce URL writes so rapid model changes do not rewrite history repeatedly.
+    const timeoutId = window.setTimeout(() => {
+      const url = new URL(window.location.href);
+      url.searchParams.set("models", selectedIds.join(","));
+      window.history.replaceState({}, "", url);
+    }, 120);
+    return () => window.clearTimeout(timeoutId);
   }, [selectedIds]);
 
   useEffect(() => {
@@ -103,7 +107,7 @@ export default function ComparePage() {
   const lowestOutput = Math.min(...selected.map((model) => model.outputPrice));
 
   return (
-    <div className="compare-app">
+    <div className="compare-app" id="top">
       <header className="compare-topbar">
         <a className="compare-brand" href="/" aria-label="The AI Signal home"><span className="compare-brand-icon"><AudioLines size={19} /></span><span>OneAtlas</span></a>
         <nav className="compare-nav" aria-label="Main navigation">
@@ -136,7 +140,7 @@ export default function ComparePage() {
           </aside>
         </section>
 
-        <section className="model-selection" aria-label="Model selection">
+        <section className="model-selection" id="model-selection" aria-label="Model selection">
           <div className="selection-heading"><div><span className="eyebrow-label">YOUR COMPARISON</span><h2>Choose your models <span>{selected.length}/4</span></h2></div><button className="share-button" onClick={copyLink}><Copy size={15} /> {copied ? "Link copied" : "Share comparison"}</button></div>
           <div className="selected-models">
             {selected.map((model) => <div className="selected-chip" key={model.id}><BrandMark model={model} small /><span>{model.name}</span><button aria-label={`Remove ${model.name}`} onClick={() => toggleModel(model.id)}><X size={14} /></button></div>)}
@@ -175,8 +179,8 @@ export default function ComparePage() {
             <div className="section-heading"><div><span className="eyebrow-label">PLAN YOUR SPEND</span><h2>Monthly cost estimator</h2><p>Adjust your expected usage to estimate API costs across your selected models.</p></div><span className="estimator-icon"><Zap size={19} /></span></div>
             <div className="estimator-layout">
               <div className="estimator-controls">
-                <div className="token-control"><div className="token-label"><label htmlFor="input-tokens">Monthly prompt tokens</label><strong>{inputTokens.toLocaleString("en-US")}</strong></div><input id="input-tokens" type="range" min="0" max="50000000" step="250000" value={inputTokens} onChange={(event) => setInputTokens(Number(event.target.value))} /><div className="range-ends"><span>0</span><span>50M tokens</span></div><input className="number-input" aria-label="Monthly prompt tokens exact value" type="number" min="0" value={inputTokens} onChange={(event) => setInputTokens(Math.max(0, Number(event.target.value) || 0))} /></div>
-                <div className="token-control"><div className="token-label"><label htmlFor="output-tokens">Monthly completion tokens</label><strong>{outputTokens.toLocaleString("en-US")}</strong></div><input id="output-tokens" type="range" min="0" max="10000000" step="100000" value={Math.min(outputTokens, 10000000)} onChange={(event) => setOutputTokens(Number(event.target.value))} /><div className="range-ends"><span>0</span><span>10M tokens</span></div><input className="number-input" aria-label="Monthly completion tokens exact value" type="number" min="0" value={outputTokens} onChange={(event) => setOutputTokens(Math.max(0, Number(event.target.value) || 0))} /></div>
+                <div className="token-control"><div className="token-label"><label htmlFor="input-tokens">Monthly prompt tokens</label><strong>{inputTokens.toLocaleString("en-US")}</strong></div><input id="input-tokens" type="range" min="0" max="50000000" step="250000" value={inputTokens} onChange={(event) => setInputTokens(Number(event.target.value))} /><div className="range-ends"><span>0</span><span>50M tokens</span></div><input className="number-input" aria-label="Monthly prompt tokens exact value" type="number" min="0" value={inputTokens} onChange={(event) => setInputTokens(Math.min(50000000, Math.max(0, Number(event.target.value) || 0)))} max="50000000" /></div>
+                <div className="token-control"><div className="token-label"><label htmlFor="output-tokens">Monthly completion tokens</label><strong>{outputTokens.toLocaleString("en-US")}</strong></div><input id="output-tokens" type="range" min="0" max="10000000" step="100000" value={Math.min(outputTokens, 10000000)} onChange={(event) => setOutputTokens(Number(event.target.value))} /><div className="range-ends"><span>0</span><span>10M tokens</span></div><input className="number-input" aria-label="Monthly completion tokens exact value" type="number" min="0" value={outputTokens} onChange={(event) => setOutputTokens(Math.min(10000000, Math.max(0, Number(event.target.value) || 0)))} max="10000000" /></div>
               </div>
               <div className="cost-results"><div className="cost-results-heading"><span>ESTIMATED MONTHLY BILL</span><span>USD · Approximate</span></div>{[...costs].sort((a,b) => a.total-b.total).map((cost, index) => { const model = models.find((item) => item.id === cost.id); const next = [...costs].map((item) => item.total).filter((amount) => amount > cost.total).sort((a,b) => a-b)[0]; return <div className={`cost-result ${cost.total === lowestCost ? "best-cost" : ""}`} key={cost.id}><div className="cost-model"><BrandMark model={model} small /><span>{model.name}{cost.total === lowestCost && <small className="best-value"><Sparkles size={11} /> Best value</small>}</span></div><div className="cost-amount"><strong>{money(cost.total)}</strong>{cost.total === lowestCost && next !== undefined && <small>Saves {money(next - cost.total)}/mo</small>}</div></div>; })}<p className="cost-footnote">Estimates use listed per-million token rates only. Caching, discounts, taxes, and provider-specific fees may change actual bills.</p></div>
             </div>
