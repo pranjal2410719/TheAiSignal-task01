@@ -15,6 +15,23 @@ function validSessionId(value: unknown): value is string {
   return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
+// In-memory sliding-window rate limiter (15 requests per minute per session)
+const rateLimitMap = new Map<string, number[]>();
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const MAX_REQUESTS_PER_WINDOW = 15;
+
+function checkRateLimit(key: string): boolean {
+  const now = Date.now();
+  const timestamps = (rateLimitMap.get(key) || []).filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+  if (timestamps.length >= MAX_REQUESTS_PER_WINDOW) {
+    rateLimitMap.set(key, timestamps);
+    return false;
+  }
+  timestamps.push(now);
+  rateLimitMap.set(key, timestamps);
+  return true;
+}
+
 export async function POST(request: Request) {
   let body: unknown;
   try {
@@ -31,11 +48,25 @@ export async function POST(request: Request) {
   if (typeof input.model !== "string" || !ALLOWED_MODELS.has(input.model)) {
     return NextResponse.json({ error: "Choose a supported model from the selector." }, { status: 400 });
   }
-  if (!Array.isArray(input.messages) || input.messages.length < 1 || input.messages.length > 30) {
-    return NextResponse.json({ error: "Send between 1 and 30 messages." }, { status: 400 });
+  if (!Array.isArray(input.messages) || input.messages.length < 1) {
+    return NextResponse.json({ error: "Send at least one message." }, { status: 400 });
   }
+  if (!validSessionId(input.sessionId)) {
+    return NextResponse.json({ error: "A valid browser session is required." }, { status: 400 });
+  }
+
+  // Rate limit protection
+  if (!checkRateLimit(input.sessionId)) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded (max 15 prompts/min). Please wait a few seconds before trying again." },
+      { status: 429 }
+    );
+  }
+
+  // Auto-window up to 30 messages to avoid hard 400 errors during long sessions
+  const rawList = input.messages.length > 30 ? input.messages.slice(-30) : input.messages;
   const messages: ChatMessage[] = [];
-  for (const item of input.messages) {
+  for (const item of rawList) {
     if (
       !item || typeof item !== "object" ||
       !("role" in item) || !("content" in item) ||
@@ -51,9 +82,6 @@ export async function POST(request: Request) {
 
   if (messages[messages.length - 1]?.role !== "user") {
     return NextResponse.json({ error: "The final message must be a user prompt." }, { status: 400 });
-  }
-  if (!validSessionId(input.sessionId)) {
-    return NextResponse.json({ error: "A valid browser session is required." }, { status: 400 });
   }
 
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -85,31 +113,38 @@ export async function POST(request: Request) {
   } | null;
 
   if (!providerResponse.ok) {
-    const status = providerResponse.status === 429 ? 429 : providerResponse.status >= 500 ? 502 : 400;
+    const message = payload?.error?.message;
+    if (providerResponse.status === 429) {
+      return NextResponse.json({ error: "OpenRouter rate limit reached. Please wait a moment." }, { status: 429 });
+    }
     return NextResponse.json(
-      { error: payload?.error?.message || "The AI provider rejected this request." },
-      { status },
+      { error: typeof message === "string" ? message : "The AI model could not process your prompt." },
+      { status: 502 }
     );
   }
 
-  const responseText = payload?.choices?.[0]?.message?.content;
-  if (typeof responseText !== "string") {
-    return NextResponse.json({ error: "The AI provider returned an empty or unsupported response." }, { status: 502 });
+  const reply = payload?.choices?.[0]?.message?.content;
+  if (typeof reply !== "string" || reply.trim().length === 0) {
+    return NextResponse.json({ error: "The provider returned an empty response." }, { status: 502 });
   }
 
-  const prompt = [...messages].reverse().find((message) => message.role === "user")?.content || "";
-  const tokensUsed = Number.isFinite(payload?.usage?.total_tokens) ? payload!.usage!.total_tokens! : null;
-  // History is best-effort: a storage issue must not discard a successful model response.
+  const totalTokens = typeof payload?.usage?.total_tokens === "number" ? payload.usage.total_tokens : null;
+  const userPrompt = messages[messages.length - 1].content;
+
   let historySaved = false;
   try {
     const db = getUsageDatabase();
-    const result = db.prepare(
-      "INSERT INTO usage_history (session_id, model, prompt, response, tokens_used) VALUES (?, ?, ?, ?, ?)",
-    ).run(input.sessionId, input.model, prompt, responseText, tokensUsed);
-    historySaved = Number(result.changes) === 1;
+    if (db) {
+      const statement = db.prepare(`
+        INSERT INTO usage_history (session_id, model, prompt, response, total_tokens)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+      statement.run(input.sessionId, input.model, userPrompt, reply, totalTokens);
+      historySaved = true;
+    }
   } catch (error) {
-    console.error("Usage history save failed:", error instanceof Error ? error.message : "Unknown database error");
+    console.error("Usage history write failed:", error);
   }
 
-  return NextResponse.json({ response: responseText, model: input.model, tokensUsed, historySaved });
+  return NextResponse.json({ response: reply, tokensUsed: totalTokens, historySaved });
 }

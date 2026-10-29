@@ -18,4 +18,6 @@ export interface ModelRecord {
   releaseDate: string;
   weights: "Open" | "Closed";
   isSampleData: true;
+  playgroundModelId?: string;
+  isPlaygroundRunnable?: boolean;
 }

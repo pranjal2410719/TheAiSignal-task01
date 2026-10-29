@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Check, Clock3, LoaderCircle, MessageSquare, Send, Sparkles, Trash2 } from "lucide-react";
+import { Bot, Check, Clock3, Copy, LoaderCircle, MessageSquare, Send, Sparkles, Trash2 } from "lucide-react";
+import { ChatMarkdown } from "./chat-markdown";
 
 export const PLAYGROUND_MODELS = [
   { id: "openrouter/free", label: "Auto-select available free model", lab: "Auto" },
@@ -9,7 +10,7 @@ export const PLAYGROUND_MODELS = [
   { id: "deepseek/deepseek-chat-v3-0324:free", label: "DeepSeek Chat · Free", lab: "DeepSeek" },
 ] as const;
 
-type Message = { role: "user" | "assistant"; content: string };
+type Message = { role: "user" | "assistant"; content: string; timestamp?: string };
 
 function getSessionId() {
   if (typeof window === "undefined") return "00000000-0000-4000-8000-000000000000";
@@ -20,6 +21,41 @@ function getSessionId() {
     window.localStorage.setItem(key, value);
   }
   return value;
+}
+
+function CopyMessageButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] text-muted hover:text-ink hover:bg-sunken transition-colors cursor-pointer border border-transparent hover:border-line"
+      title="Copy full response"
+    >
+      {copied ? (
+        <>
+          <Check size={12} className="text-emerald-500" />
+          <span className="text-emerald-500 font-medium">Copied</span>
+        </>
+      ) : (
+        <>
+          <Copy size={12} />
+          <span>Copy</span>
+        </>
+      )}
+    </button>
+  );
 }
 
 interface DashboardPlaygroundProps {
@@ -43,6 +79,17 @@ export function DashboardPlayground({ onOpenHistory, selectedModelId }: Dashboar
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const [prevSelectedId, setPrevSelectedId] = useState(selectedModelId);
+  if (selectedModelId !== prevSelectedId) {
+    setPrevSelectedId(selectedModelId);
+    if (selectedModelId) {
+      const match = PLAYGROUND_MODELS.find((m) => m.id === selectedModelId);
+      if (match) {
+        setModel(match.id);
+      }
+    }
+  }
+
   const activeModel = useMemo(() => PLAYGROUND_MODELS.find((item) => item.id === model) ?? PLAYGROUND_MODELS[0], [model]);
 
   useEffect(() => {
@@ -57,18 +104,26 @@ export function DashboardPlayground({ onOpenHistory, selectedModelId }: Dashboar
       return;
     }
 
-    const nextMessages: Message[] = [...messages, { role: "user", content }];
+    const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const nextMessages: Message[] = [...messages, { role: "user", content, timestamp }];
     setMessages(nextMessages);
     setDraft("");
     setBusy(true);
     setError("");
     setNotice("");
 
+    // Sliding window: send up to last 16 messages to stay comfortably below the server's message limit
+    const payloadMessages = nextMessages.length > 16 ? nextMessages.slice(-16) : nextMessages;
+
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model, messages: nextMessages, sessionId: getSessionId() }),
+        body: JSON.stringify({
+          model,
+          messages: payloadMessages.map(({ role, content: msgContent }) => ({ role, content: msgContent })),
+          sessionId: getSessionId(),
+        }),
       });
       const data = (await response.json()) as {
         response?: string;
@@ -77,7 +132,9 @@ export function DashboardPlayground({ onOpenHistory, selectedModelId }: Dashboar
         historySaved?: boolean;
       };
       if (!response.ok || !data.response) throw new Error(data.error || "The request failed.");
-      setMessages((current) => [...current, { role: "assistant", content: data.response! }]);
+      
+      const assistantTimestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      setMessages((current) => [...current, { role: "assistant", content: data.response!, timestamp: assistantTimestamp }]);
       setNotice(
         data.historySaved
           ? `Saved to history · ${data.tokensUsed ?? "—"} tokens`
@@ -141,7 +198,7 @@ export function DashboardPlayground({ onOpenHistory, selectedModelId }: Dashboar
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] gap-5">
         {/* Chat Conversation Card */}
-        <div className="flex flex-col min-h-[550px] max-h-[720px] rounded-2xl border border-line bg-surface overflow-hidden">
+        <div className="flex flex-col min-h-[580px] max-h-[750px] rounded-2xl border border-line bg-surface overflow-hidden">
           {/* Chat Header Bar */}
           <div className="flex items-center justify-between p-3.5 sm:p-4 border-b border-line bg-surface">
             <div className="flex items-center gap-2.5">
@@ -153,22 +210,29 @@ export function DashboardPlayground({ onOpenHistory, selectedModelId }: Dashboar
                 <span className="text-[10px] text-muted font-mono">{activeModel.id}</span>
               </div>
             </div>
-            <span className="chip text-[11px] font-mono">
-              {messages.length} msg{messages.length === 1 ? "" : "s"}
-            </span>
+            <div className="flex items-center gap-2">
+              {messages.length > 16 && (
+                <span className="chip text-[10px] font-mono bg-sunken">
+                  Sliding window: last 16
+                </span>
+              )}
+              <span className="chip text-[11px] font-mono">
+                {messages.length} msg{messages.length === 1 ? "" : "s"}
+              </span>
+            </div>
           </div>
 
           {/* Messages Feed */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
             {messages.length === 0 && (
-              <div className="grid place-items-center min-h-[300px] text-center p-6">
+              <div className="grid place-items-center min-h-[320px] text-center p-6">
                 <div className="max-w-md">
                   <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-sunken text-accent">
                     <Sparkles size={22} />
                   </div>
                   <h3 className="serif text-xl font-medium text-ink">What would you like to explore?</h3>
                   <p className="mt-1.5 text-xs leading-relaxed text-muted">
-                    Choose a model, type a prompt, and evaluate how the AI performs.
+                    Choose a model, type a prompt, and evaluate how the AI performs with clean, organized markdown output.
                   </p>
                   <div className="mt-4 flex flex-wrap justify-center gap-1.5">
                     {[
@@ -200,15 +264,34 @@ export function DashboardPlayground({ onOpenHistory, selectedModelId }: Dashboar
                     <Bot size={15} />
                   </div>
                 )}
-                <div
-                  className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-xs sm:text-sm leading-relaxed ${
-                    message.role === "user"
-                      ? "bg-ink text-on-ink"
-                      : "border border-line bg-canvas text-ink"
-                  }`}
-                >
-                  <p className="whitespace-pre-wrap break-words">{message.content}</p>
-                </div>
+                
+                {message.role === "user" ? (
+                  <div className="max-w-[85%] rounded-2xl bg-ink text-on-ink px-4 py-2.5 text-xs sm:text-sm leading-relaxed whitespace-pre-wrap break-words shadow-sm">
+                    {message.content}
+                    {message.timestamp && (
+                      <span className="block mt-1 text-[10px] text-on-ink/60 text-right font-mono">
+                        {message.timestamp}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="max-w-[90%] sm:max-w-[85%] rounded-2xl border border-line bg-canvas p-4 text-ink shadow-sm space-y-2">
+                    <div className="flex items-center justify-between pb-2 border-b border-line text-[11px] text-muted">
+                      <span className="font-medium flex items-center gap-1.5">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                        {activeModel.label}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {message.timestamp && (
+                          <span className="text-[10px] font-mono text-muted">{message.timestamp}</span>
+                        )}
+                        <CopyMessageButton text={message.content} />
+                      </div>
+                    </div>
+                    <ChatMarkdown content={message.content} />
+                  </div>
+                )}
+
                 {message.role === "user" && (
                   <div className="mt-1 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-sunken text-ink">
                     <MessageSquare size={14} />
@@ -218,14 +301,14 @@ export function DashboardPlayground({ onOpenHistory, selectedModelId }: Dashboar
             ))}
 
             {busy && (
-              <div className="flex items-center gap-2.5 text-xs text-muted py-2">
+              <div className="flex items-center gap-2.5 text-xs text-muted py-2 pl-10">
                 <LoaderCircle className="animate-spin text-accent" size={16} />
-                <span>Waiting for response from {activeModel.label}…</span>
+                <span>Generating refined response from {activeModel.label}…</span>
               </div>
             )}
           </div>
 
-            {/* Input Form */}
+          {/* Input Form */}
           <form
             className="border-t border-line p-3 sm:p-4 bg-surface"
             onSubmit={(e) => {

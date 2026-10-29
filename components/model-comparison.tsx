@@ -100,7 +100,14 @@ export function ModelComparison({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [cmdkOpen, setCmdkOpen] = useState(false);
   const [dark, setDark] = useState<boolean>(false);
+  const [playgroundTargetModel, setPlaygroundTargetModel] = useState<string | undefined>(undefined);
   const urlInitialized = useRef(false);
+
+  const openPlaygroundWithModel = useCallback((model: ModelRecord) => {
+    const targetId = model.playgroundModelId || model.id;
+    setPlaygroundTargetModel(targetId);
+    setActiveView("playground");
+  }, []);
 
   // Sync dark class to document element
   useEffect(() => {
@@ -664,7 +671,7 @@ export function ModelComparison({
           {activeView === "playground" && (
             <DashboardPlayground
               onOpenHistory={() => setActiveView("history")}
-              selectedModelId={selectedModels[0]?.id}
+              selectedModelId={playgroundTargetModel || selectedModels[0]?.playgroundModelId || selectedModels[0]?.id}
             />
           )}
 
@@ -962,9 +969,20 @@ export function ModelComparison({
                             <div>
                               <div className="flex items-center justify-between mb-2">
                                 <span className="text-xs font-mono text-muted">{model.lab}</span>
-                                <span className={`chip ${model.weights === "Open" ? "bg-[var(--tile-olive)]/60 text-[#2d3a12]" : ""}`}>
-                                  {model.weights}
-                                </span>
+                                <div className="flex items-center gap-1.5">
+                                  {model.isPlaygroundRunnable ? (
+                                    <span className="chip bg-[var(--tile-cactus)]/70 text-[#17382c] font-medium text-[10px]">
+                                      ⚡ Live Playground
+                                    </span>
+                                  ) : (
+                                    <span className="chip font-mono text-[10px] text-muted">
+                                      Benchmark Spec
+                                    </span>
+                                  )}
+                                  <span className={`chip ${model.weights === "Open" ? "bg-[var(--tile-olive)]/60 text-[#2d3a12]" : ""}`}>
+                                    {model.weights}
+                                  </span>
+                                </div>
                               </div>
                               <h3 className="serif text-lg font-medium text-ink mb-1">{model.name}</h3>
                               <p className="text-[11px] text-muted mono mb-4">Released {model.releaseDate}</p>
@@ -1001,7 +1019,7 @@ export function ModelComparison({
                             <div className="pt-2 border-t border-line flex items-center justify-between text-xs">
                               <button
                                 type="button"
-                                onClick={() => setActiveView("playground")}
+                                onClick={() => openPlaygroundWithModel(model)}
                                 className="inline-flex items-center gap-1 text-xs text-accent hover:underline cursor-pointer bg-transparent border-none"
                               >
                                 <Bot size={13} />
@@ -1329,7 +1347,7 @@ export function ModelComparison({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setActiveView("playground");
+                            openPlaygroundWithModel(m);
                             setCmdkOpen(false);
                           }}
                           className="text-[11px] px-2 py-1 rounded bg-surface border border-line text-accent hover:bg-sunken cursor-pointer"
