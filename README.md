@@ -2,6 +2,7 @@
 
 A full-stack web application for discovering, comparing, and testing artificial intelligence models with an interactive playground, live provider integration, and automated session usage tracking.
 
+- **Author**: **Pranjal Yadav** ([@pranjal2410719](https://github.com/pranjal2410719))
 - **Live Application**: [https://theaisignal.vercel.app/](https://theaisignal.vercel.app/)
 - **Repository**: [https://github.com/pranjal2410719/TheAiSignal-task01](https://github.com/pranjal2410719/TheAiSignal-task01)
 
@@ -28,8 +29,13 @@ A full-stack web application for discovering, comparing, and testing artificial 
 - **Automated 4-Hour Retention Engine**: Implements an automatic `4h TTL` cleanup query running periodically on database access to keep history lean and organized.
 - **Manual Management**: Instant session history clearing and live refresh controls.
 
-### 4. Atlas/OneAtlas Design System
-- Adapted from the warm editorial design system: warm cream canvas (`#faf9f5`), charcoal dark mode (`#1a1917`), serif typography (`Source Serif 4`), and pastel brand tiles (`oat`, `sky`, `olive`, `heather`, `cactus`).
+### 4. Atlas/OneAtlas Design System & Modern UI
+- Adapted from the warm editorial design system: charcoal dark mode (`#1a1917`, default), warm cream canvas (`#faf9f5`), serif typography (`Source Serif 4`), and pastel brand tiles (`oat`, `sky`, `olive`, `heather`, `cactus`).
+- **Kokonut UI Integration**:
+  - `AI_Prompt`: Feature-rich chat composer with model selection, effort/thinking levels, file attachments, and `/` command palette.
+  - `SwitchButton`: Smooth View Transition circular-reveal dark/light mode toggle.
+  - `AICitations`: Inline citations with interactive badge hover cards.
+  - `AIMessageQueue`: Follow-up message queuing with drag-and-drop reordering.
 - Keyboard shortcut `⌘K` / `Ctrl+K` for global command palette navigation.
 
 ---

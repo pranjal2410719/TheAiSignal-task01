@@ -1,3 +1,8 @@
+/**
+ * SQLite session history storage with automated 4-hour retention cleanup.
+ * @author Pranjal Yadav <https://github.com/pranjal2410719>
+ */
+
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";

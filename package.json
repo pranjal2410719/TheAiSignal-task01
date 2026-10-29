@@ -1,6 +1,13 @@
 {
   "name": "the-ai-signal-task01",
   "version": "1.0.0",
+  "description": "The AI Signal — AI Model Workspace & Discovery Platform developed by Pranjal Yadav",
+  "author": "Pranjal Yadav <2k24.cs1l.2410719@gmail.com> (https://github.com/pranjal2410719)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pranjal2410719/TheAiSignal-task01.git"
+  },
+  "homepage": "https://github.com/pranjal2410719/TheAiSignal-task01",
   "private": true,
   "scripts": {
     "dev": "next dev",

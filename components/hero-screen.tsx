@@ -186,7 +186,18 @@ export function HeroScreen({ onLaunch }: HeroScreenProps) {
             <BrandLogo />
             <span>· An independent directory of AI models.</span>
           </div>
-          <span>Frontend Engineering Assessment · Next.js 16 + React 19 + Tailwind CSS 4</span>
+          <span>
+            Engineered by{" "}
+            <a
+              href="https://github.com/pranjal2410719"
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-ink hover:underline"
+            >
+              Pranjal Yadav
+            </a>{" "}
+            · Next.js 16 + React 19 + Tailwind CSS 4
+          </span>
         </div>
       </footer>
     </div>

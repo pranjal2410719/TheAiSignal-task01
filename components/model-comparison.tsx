@@ -584,7 +584,7 @@ export function ModelComparison({
           )}
         </div>
 
-        <div className="sidebar-footer">
+        <div className="sidebar-footer space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[11px] text-muted">Theme Palette</span>
             <SwitchButton
@@ -594,6 +594,17 @@ export function ModelComparison({
               showLabel={false}
               aria-label="Toggle theme"
             />
+          </div>
+          <div className="pt-2 border-t border-line flex items-center justify-between text-[10px] text-muted font-mono">
+            <span>By Pranjal Yadav</span>
+            <a
+              href="https://github.com/pranjal2410719"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-ink transition-colors underline"
+            >
+              @pranjal2410719
+            </a>
           </div>
         </div>
       </aside>
@@ -1254,10 +1265,12 @@ export function ModelComparison({
                         The comparison experience uses an illustrative local catalog. Prices, provider listings, release dates, and benchmark scores are demonstration data designed for this Frontend Engineering Assessment.
                       </p>
                       <div className="pt-4 border-t border-line space-y-2 text-xs text-muted">
-                        <p>• <strong>Stack</strong>: Next.js 16 App Router, React 19, TypeScript, Tailwind CSS 4.</p>
-                        <p>• <strong>Theme</strong>: OneAtlas warm cream/charcoal design system with pastel tiles.</p>
+                        <p>• <strong>Author</strong>: Developed by Pranjal Yadav (<a href="https://github.com/pranjal2410719" target="_blank" rel="noreferrer" className="underline hover:text-ink">@pranjal2410719</a>).</p>
+                        <p>• <strong>Stack</strong>: Next.js 16 App Router, React 19, TypeScript 5.7, Tailwind CSS 4.</p>
+                        <p>• <strong>Theme</strong>: OneAtlas warm cream/charcoal design system with pastel tiles & Kokonut UI animations.</p>
                         <p>• <strong>URL State</strong>: Active selection synchronizes to <code>/compare?models=...</code> via <code>history.replaceState</code>.</p>
                         <p>• <strong>Cost Formula</strong>: <code>(input ÷ 1M × input rate) + (output ÷ 1M × output rate)</code>.</p>
+                        <p>• <strong>Persistence</strong>: Node.js SQLite with automated 4-hour historical session rollover.</p>
                       </div>
                     </section>
                   )}
@@ -1270,7 +1283,7 @@ export function ModelComparison({
           <footer className="mt-12 pt-6 border-t border-line flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted">
             <div className="flex items-center gap-2">
               <BrandLogo />
-              <span>· An independent directory & playground for AI models.</span>
+              <span>· Developed by <strong>Pranjal Yadav</strong> (<a href="https://github.com/pranjal2410719" target="_blank" rel="noreferrer" className="underline hover:text-ink">@pranjal2410719</a>).</span>
             </div>
             <span>Next.js 16 + React 19 + Tailwind CSS 4</span>
             <button

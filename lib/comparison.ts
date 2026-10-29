@@ -1,3 +1,8 @@
+/**
+ * Model comparison, URL synchronization, and cost estimation utilities.
+ * @author Pranjal Yadav <https://github.com/pranjal2410719>
+ */
+
 export function parseModelSelection(
   search: string,
   validModelIds: readonly string[],

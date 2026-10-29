@@ -1,3 +1,8 @@
+/**
+ * Session usage history query & cleanup API route.
+ * @author Pranjal Yadav <https://github.com/pranjal2410719>
+ */
+
 import { NextResponse } from "next/server";
 import { getUsageDatabase, pruneOldHistory } from "@/lib/usage-history-db";
 

@@ -1,3 +1,8 @@
+/**
+ * Secure AI Chat Execution API Route with rate limiting & session logging.
+ * @author Pranjal Yadav <https://github.com/pranjal2410719>
+ */
+
 import { NextResponse } from "next/server";
 import { getUsageDatabase } from "@/lib/usage-history-db";
 

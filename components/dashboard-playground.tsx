@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * AI Model Playground with Kokonut UI Prompt, live OpenRouter inference, and session tracking.
+ * @author Pranjal Yadav <https://github.com/pranjal2410719>
+ */
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bot, Check, Clock3, Copy, LoaderCircle, MessageSquare, Sparkles, Trash2 } from "lucide-react";
 import { ChatMarkdown } from "./chat-markdown";
