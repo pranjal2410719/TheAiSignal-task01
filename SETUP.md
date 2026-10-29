@@ -4,7 +4,7 @@ The application is built using **Next.js 16 App Router, React 19, TypeScript, an
 
 ## Requirements and local setup
 
-Use Node.js 20.19 or newer in the 20.x series, or Node.js 22.12 or newer.
+Use Node.js 22.12 or newer (the Playground's local SQLite database uses the built-in `node:sqlite` module).
 
 ```bash
 npm install
