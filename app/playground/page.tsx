@@ -6,7 +6,8 @@ import { ArrowLeft, Bot, Check, Clock3, LoaderCircle, MessageSquare, Send, Spark
 import { models as catalogModels } from "@/lib/models";
 
 const MODEL_OPTIONS = [
-  { id: "meta-llama/llama-3.3-70b-instruct:free", label: "Llama 3.3 70B · Free" },
+  { id: "openrouter/free", label: "Auto-select available free model" },
+  { id: "meta-llama/llama-3.3-70b-instruct:free", label: "Llama 3.3 70B · Free (availability may vary)" },
   { id: "google/gemini-2.0-flash-001", label: "Gemini 2.0 Flash" },
   { id: "openai/gpt-4o-mini", label: "GPT-4o mini" },
   { id: "deepseek/deepseek-chat-v3-0324:free", label: "DeepSeek Chat · Free" },
@@ -25,7 +26,7 @@ function getSessionId() {
 }
 
 export default function PlaygroundPage() {
-  const [model, setModel] = useState<string>(MODEL_OPTIONS[0].id);
+  const [model, setModel] = useState<string>("openrouter/free");
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -168,7 +169,7 @@ export default function PlaygroundPage() {
               </select>
               <p className="mt-3 break-all text-[11px] text-muted">{model}</p>
               {catalogModelName && <p className="mt-3 rounded-lg border border-line bg-sunken p-3 text-xs leading-5 text-muted">You opened this playground from the illustrative catalog entry <strong className="text-ink">{catalogModelName}</strong>. Catalog entries are sample data and are not mapped to provider APIs; choose a supported live model above.</p>}
-              <div className="mt-4 rounded-xl bg-sunken p-3 text-xs leading-5 text-muted">Availability and free-tier limits are controlled by OpenRouter and may change. Provider errors are shown in the conversation.</div>
+              <div className="mt-4 rounded-xl bg-sunken p-3 text-xs leading-5 text-muted">The auto-select option routes to an available free text model. Other model IDs can change or become unavailable; free-tier limits are controlled by OpenRouter.</div>
             </section>
             <section className="rounded-2xl border border-line bg-surface p-4">
               <div className="flex items-center gap-2"><Clock3 size={16} className="text-accent" /><h2 className="font-semibold">Session</h2></div>
