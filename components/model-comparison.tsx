@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
+  Bot,
   BrainCircuit,
   Calculator,
   Check,
+  Clock3,
   Columns,
   Copy,
   Info,
@@ -24,6 +26,8 @@ import {
 import { HeroScreen } from "@/components/hero-screen";
 import { CostCalculator } from "@/components/cost-calculator";
 import { ModelDetails } from "@/components/model-details";
+import { DashboardPlayground } from "@/components/dashboard-playground";
+import { DashboardHistory } from "@/components/dashboard-history";
 import { BrandLogo } from "@/components/brand-logo";
 import { DEFAULT_MODEL_IDS, MAX_SELECTED_MODELS, MIN_SELECTED_MODELS, models } from "@/lib/models";
 import type { ModelRecord } from "@/lib/types";
@@ -57,7 +61,14 @@ const MOD_ICON: Record<string, string> = {
   PDF: "▤",
 };
 
-type DashboardView = "overview" | "compare" | "estimator" | "details" | "about";
+export type DashboardView =
+  | "overview"
+  | "compare"
+  | "estimator"
+  | "playground"
+  | "history"
+  | "details"
+  | "about";
 
 const TOGGLE_CHIPS = [
   { id: "reasoning", label: "Reasoning" },
@@ -70,11 +81,16 @@ const TOGGLE_CHIPS = [
 interface ModelComparisonProps {
   basePath?: string;
   initialLaunched?: boolean;
+  initialView?: DashboardView;
 }
 
-export function ModelComparison({ basePath, initialLaunched = false }: ModelComparisonProps) {
+export function ModelComparison({
+  basePath,
+  initialLaunched = false,
+  initialView = "overview",
+}: ModelComparisonProps) {
   const [isLaunched, setIsLaunched] = useState<boolean>(initialLaunched);
-  const [activeView, setActiveView] = useState<DashboardView>("overview");
+  const [activeView, setActiveView] = useState<DashboardView>(initialView);
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
   const [selectedIds, setSelectedIds] = useState<string[]>(DEFAULT_MODEL_IDS);
   const [query, setQuery] = useState("");
@@ -448,6 +464,28 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
             <button
               type="button"
               onClick={() => {
+                setActiveView("playground");
+                setSidebarOpen(false);
+              }}
+              className={`sidebar-nav-item ${activeView === "playground" ? "sidebar-nav-item-active" : ""}`}
+            >
+              <Bot size={16} className="shrink-0 text-accent" />
+              <span className="font-semibold">AI Playground</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveView("history");
+                setSidebarOpen(false);
+              }}
+              className={`sidebar-nav-item ${activeView === "history" ? "sidebar-nav-item-active" : ""}`}
+            >
+              <Clock3 size={16} className="shrink-0" />
+              <span>Usage History</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
                 setActiveView("details");
                 setSidebarOpen(false);
               }}
@@ -467,14 +505,6 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
               <Info size={16} className="shrink-0" />
               <span>Methodology</span>
             </button>
-            <a href="/playground" className="sidebar-nav-item">
-              <Sparkles size={16} className="shrink-0" />
-              <span>AI Playground</span>
-            </a>
-            <a href="/history" className="sidebar-nav-item">
-              <Columns size={16} className="shrink-0" />
-              <span>Usage History</span>
-            </a>
           </nav>
         </div>
 
@@ -487,7 +517,7 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
             </span>
           </div>
 
-          <div className="space-y-1.5 max-h-[190px] overflow-y-auto pr-1">
+          <div className="space-y-1.5 max-h-[170px] overflow-y-auto pr-1">
             {selectedModels.map((model) => (
               <div
                 key={model.id}
@@ -572,6 +602,8 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
                 {activeView === "overview" && "Models Overview"}
                 {activeView === "compare" && "Comparison Matrix"}
                 {activeView === "estimator" && "Cost Estimator"}
+                {activeView === "playground" && "AI Model Playground"}
+                {activeView === "history" && "Usage History"}
                 {activeView === "details" && "Model Profiles"}
                 {activeView === "about" && "Methodology"}
               </span>
@@ -579,11 +611,23 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Quick playground link button */}
+            {activeView !== "playground" && (
+              <button
+                type="button"
+                onClick={() => setActiveView("playground")}
+                className="btn btn-ink text-xs py-1.5 px-3 h-9 hidden sm:inline-flex"
+              >
+                <Bot size={14} />
+                <span>Playground</span>
+              </button>
+            )}
+
             {/* ⌘K Search Trigger */}
             <button
               type="button"
               onClick={() => setCmdkOpen(true)}
-              className="field cursor-pointer text-left text-[0.82rem] text-muted hidden sm:flex w-64"
+              className="field cursor-pointer text-left text-[0.82rem] text-muted hidden sm:flex w-60"
             >
               <Search size={14} className="text-muted" />
               <span className="min-w-0 flex-1 truncate">Search models, labs...</span>
@@ -605,7 +649,7 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
             <button
               type="button"
               onClick={shareLink}
-              className="btn btn-ink text-xs py-1.5 px-3 h-9"
+              className="btn btn-line text-xs py-1.5 px-3 h-9"
               aria-label="Share comparison URL"
             >
               {copied ? <Check size={13} /> : <Copy size={13} />}
@@ -616,573 +660,595 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
 
         {/* MAIN BODY AREA */}
         <main className="dashboard-content" id="main">
-          {/* TOP KPI CARDS */}
-          <div className="dashboard-kpi-grid">
-            {/* KPI 1: Active Models */}
-            <div className="dashboard-kpi-card">
-              <div className="flex items-center justify-between text-xs text-muted">
-                <span>Selected Models</span>
-                <span className="chip">
-                  {hasMinModels ? "Valid Set" : "Need >= 2"}
-                </span>
-              </div>
-              <div className="my-2">
-                <span className="serif text-3xl font-medium text-ink mono">
-                  {selectedModels.length}
-                </span>
-                <span className="text-xs text-muted mono"> / {MAX_SELECTED_MODELS}</span>
-              </div>
-              <span className="text-[11px] text-muted truncate">
-                {selectedModels.map((m) => m.name).join(", ") || "None"}
-              </span>
-            </div>
-
-            {/* KPI 2: Lowest Input Rate */}
-            <div className="dashboard-kpi-card">
-              <div className="flex items-center justify-between text-xs text-muted">
-                <span>Lowest Input Rate</span>
-                <Zap size={13} className="text-accent" />
-              </div>
-              <div className="my-2">
-                <span className="serif text-3xl font-medium text-ink mono">
-                  {lowestInputModel ? money(lowestInputModel.inputPricePerMillion) : "$0.00"}
-                </span>
-                <span className="text-xs text-muted"> / 1M</span>
-              </div>
-              <span className="text-[11px] text-muted font-medium truncate">
-                {lowestInputModel ? `${lowestInputModel.name} (${lowestInputModel.lab})` : "—"}
-              </span>
-            </div>
-
-            {/* KPI 3: Lowest Output Rate */}
-            <div className="dashboard-kpi-card">
-              <div className="flex items-center justify-between text-xs text-muted">
-                <span>Lowest Output Rate</span>
-                <Zap size={13} className="text-accent" />
-              </div>
-              <div className="my-2">
-                <span className="serif text-3xl font-medium text-ink mono">
-                  {lowestOutputModel ? money(lowestOutputModel.outputPricePerMillion) : "$0.00"}
-                </span>
-                <span className="text-xs text-muted"> / 1M</span>
-              </div>
-              <span className="text-[11px] text-muted font-medium truncate">
-                {lowestOutputModel ? `${lowestOutputModel.name} (${lowestOutputModel.lab})` : "—"}
-              </span>
-            </div>
-
-            {/* KPI 4: Best Value Bill */}
-            <div className="dashboard-kpi-card">
-              <div className="flex items-center justify-between text-xs text-muted">
-                <span>Cheapest Monthly Bill</span>
-                <Sparkles size={13} className="text-accent" />
-              </div>
-              <div className="my-2">
-                <span className="serif text-3xl font-medium text-ink mono">
-                  {cheapestBill ? money(cheapestBill.cost) : "$0.00"}
-                </span>
-                <span className="text-xs text-muted"> / mo</span>
-              </div>
-              <span className="text-[11px] text-muted truncate">
-                {cheapestBill && secondCheapestBill
-                  ? `Saves ${money(secondCheapestBill.cost - cheapestBill.cost)} vs ${secondCheapestBill.model.name}`
-                  : cheapestBill
-                  ? cheapestBill.model.name
-                  : "5M in · 1M out standard"}
-              </span>
-            </div>
-          </div>
-
-          {/* Filter Bar & Model Selector */}
-          <div className="p-5 rounded-2xl border border-line bg-surface mb-6">
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-              <div>
-                <p className="text-xs uppercase tracking-wider font-semibold text-muted">FILTER & SELECT</p>
-                <h2 className="serif text-xl font-medium text-ink">Model Catalog & Selection</h2>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-muted mono">
-                  {filteredModels.length} models match
-                </span>
-                {/* Segmented Table | Cards switch */}
-                <div className="flex items-center border border-line rounded-lg p-0.5 bg-sunken">
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("table")}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium cursor-pointer border-none ${
-                      viewMode === "table" ? "bg-surface text-ink shadow-xs" : "bg-transparent text-muted"
-                    }`}
-                  >
-                    <TableIcon size={12} />
-                    <span>Table</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("cards")}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium cursor-pointer border-none ${
-                      viewMode === "cards" ? "bg-surface text-ink shadow-xs" : "bg-transparent text-muted"
-                    }`}
-                  >
-                    <LayoutGrid size={12} />
-                    <span>Cards</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Search and Filters */}
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
-              <div className="sm:col-span-8">
-                <label className="field w-full">
-                  <Search size={14} className="text-muted" />
-                  <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search by model, lab, or provider..."
-                    className="flex-1 bg-transparent text-xs text-ink outline-none placeholder:text-muted"
-                  />
-                  {query && (
-                    <button
-                      type="button"
-                      onClick={() => setQuery("")}
-                      className="text-xs text-muted hover:text-ink cursor-pointer bg-transparent border-none"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </label>
-              </div>
-
-              <div className="sm:col-span-4">
-                <label className="field cursor-pointer pr-1 text-xs">
-                  <span className="text-muted">Lab:</span>
-                  <select
-                    value={selectedLab}
-                    onChange={(e) => setSelectedLab(e.target.value)}
-                    className="cursor-pointer bg-transparent font-medium outline-none text-ink flex-1"
-                  >
-                    <option value="all">All Labs ({models.length})</option>
-                    {labOptions.map((opt) => (
-                      <option key={opt.name} value={opt.name}>
-                        {opt.name} ({opt.count})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            </div>
-
-            {/* Toggle Chips */}
-            <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-line">
-              {TOGGLE_CHIPS.map((chip) => {
-                const isActive = activeChips.includes(chip.id);
-                return (
-                  <button
-                    key={chip.id}
-                    type="button"
-                    onClick={() => toggleChip(chip.id)}
-                    className={`h-8 rounded-[8px] border px-2.5 text-xs font-medium cursor-pointer transition-colors ${
-                      isActive
-                        ? "border-ink bg-ink text-on-ink"
-                        : "border-line bg-surface text-ink hover:bg-sunken"
-                    }`}
-                  >
-                    {chip.label}
-                  </button>
-                );
-              })}
-              {activeChips.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setActiveChips([])}
-                  className="text-xs text-muted hover:text-ink ml-1 cursor-pointer bg-transparent border-none"
-                >
-                  Reset
-                </button>
-              )}
-            </div>
-
-            {/* Active Model Chips */}
-            <div className="mt-3 pt-3 border-t border-line">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-muted">
-                  Active Comparison ({selectedModels.length}/{MAX_SELECTED_MODELS}):
-                </span>
-                {selectedModels.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setSelectedIds([])}
-                    className="text-[11px] text-muted hover:text-red-500 cursor-pointer bg-transparent border-none"
-                  >
-                    Clear selection
-                  </button>
-                )}
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {selectedModels.map((model) => (
-                  <span
-                    key={model.id}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-sunken text-xs text-ink"
-                  >
-                    <span
-                      className="h-2 w-2 rounded-full"
-                      style={{ background: labColors[model.lab] || "#6b6a64" }}
-                    />
-                    <strong>{model.name}</strong>
-                    <span className="text-muted text-[11px]">({model.lab})</span>
-                    <button
-                      type="button"
-                      aria-label={`Remove ${model.name}`}
-                      onClick={() => updateSelection(model.id)}
-                      className="text-muted hover:text-red-500 ml-1 cursor-pointer bg-transparent border-none"
-                    >
-                      <X size={12} />
-                    </button>
-                  </span>
-                ))}
-                {selectedModels.length === 0 && (
-                  <span className="text-xs text-muted italic py-1">
-                    No models selected. Choose from candidates below.
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Available candidates */}
-            {availableModels.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-line">
-                <span className="text-xs font-semibold text-muted block mb-2">
-                  + Add model to comparison
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {availableModels.map((model) => (
-                    <div key={model.id} className="flex items-center gap-2 rounded-lg border border-line bg-surface px-2 py-1">
-                      <button
-                        type="button"
-                        disabled={selectedIds.length >= MAX_SELECTED_MODELS}
-                        onClick={() => updateSelection(model.id)}
-                        className="text-xs py-1 px-1 text-ink disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
-                      >
-                        <span className="font-bold mr-1">+</span>
-                        <span>{model.name}</span>
-                        <span className="text-muted text-[11px] ml-1">· {model.lab}</span>
-                      </button>
-                      <a href="/playground" className="whitespace-nowrap text-[11px] font-semibold text-accent hover:underline">Try in Playground</a>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {!hasMinModels && (
-            <div className="p-5 rounded-2xl border border-line bg-sunken text-xs text-ink mb-6">
-              <strong>Minimum selection required:</strong> Select at least two models to view the technical comparison matrix and cost estimator. You can select up to four models.
-            </div>
+          {/* VIEW: PLAYGROUND */}
+          {activeView === "playground" && (
+            <DashboardPlayground
+              onOpenHistory={() => setActiveView("history")}
+              selectedModelId={selectedModels[0]?.id}
+            />
           )}
 
-          {/* DYNAMIC VIEW ROUTING */}
-          {hasMinModels && (
-            <div className="space-y-8">
-              {/* CARDS MODE */}
-              {(activeView === "overview" || viewMode === "cards") && viewMode === "cards" && (
-                <section className="space-y-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h2 className="serif text-xl font-medium text-ink">Model Cards View</h2>
-                    <span className="text-xs text-muted mono">{selectedModels.length} models</span>
-                  </div>
+          {/* VIEW: HISTORY */}
+          {activeView === "history" && (
+            <DashboardHistory
+              onBackToPlayground={() => setActiveView("playground")}
+            />
+          )}
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {selectedModels.map((model) => (
-                      <div
-                        key={model.id}
-                        className="p-5 rounded-2xl border border-line bg-surface flex flex-col justify-between"
+          {/* CATALOG VIEWS (Overview, Compare, Estimator, Details, About) */}
+          {activeView !== "playground" && activeView !== "history" && (
+            <>
+              {/* TOP KPI CARDS */}
+              <div className="dashboard-kpi-grid">
+                {/* KPI 1: Active Models */}
+                <div className="dashboard-kpi-card">
+                  <div className="flex items-center justify-between text-xs text-muted">
+                    <span>Selected Models</span>
+                    <span className="chip">
+                      {hasMinModels ? "Valid Set" : "Need >= 2"}
+                    </span>
+                  </div>
+                  <div className="my-2">
+                    <span className="serif text-3xl font-medium text-ink mono">
+                      {selectedModels.length}
+                    </span>
+                    <span className="text-xs text-muted mono"> / {MAX_SELECTED_MODELS}</span>
+                  </div>
+                  <span className="text-[11px] text-muted truncate">
+                    {selectedModels.map((m) => m.name).join(", ") || "None"}
+                  </span>
+                </div>
+
+                {/* KPI 2: Lowest Input Rate */}
+                <div className="dashboard-kpi-card">
+                  <div className="flex items-center justify-between text-xs text-muted">
+                    <span>Lowest Input Rate</span>
+                    <Zap size={13} className="text-accent" />
+                  </div>
+                  <div className="my-2">
+                    <span className="serif text-3xl font-medium text-ink mono">
+                      {lowestInputModel ? money(lowestInputModel.inputPricePerMillion) : "$0.00"}
+                    </span>
+                    <span className="text-xs text-muted"> / 1M</span>
+                  </div>
+                  <span className="text-[11px] text-muted font-medium truncate">
+                    {lowestInputModel ? `${lowestInputModel.name} (${lowestInputModel.lab})` : "—"}
+                  </span>
+                </div>
+
+                {/* KPI 3: Lowest Output Rate */}
+                <div className="dashboard-kpi-card">
+                  <div className="flex items-center justify-between text-xs text-muted">
+                    <span>Lowest Output Rate</span>
+                    <Zap size={13} className="text-accent" />
+                  </div>
+                  <div className="my-2">
+                    <span className="serif text-3xl font-medium text-ink mono">
+                      {lowestOutputModel ? money(lowestOutputModel.outputPricePerMillion) : "$0.00"}
+                    </span>
+                    <span className="text-xs text-muted"> / 1M</span>
+                  </div>
+                  <span className="text-[11px] text-muted font-medium truncate">
+                    {lowestOutputModel ? `${lowestOutputModel.name} (${lowestOutputModel.lab})` : "—"}
+                  </span>
+                </div>
+
+                {/* KPI 4: Best Value Bill */}
+                <div className="dashboard-kpi-card">
+                  <div className="flex items-center justify-between text-xs text-muted">
+                    <span>Cheapest Monthly Bill</span>
+                    <Sparkles size={13} className="text-accent" />
+                  </div>
+                  <div className="my-2">
+                    <span className="serif text-3xl font-medium text-ink mono">
+                      {cheapestBill ? money(cheapestBill.cost) : "$0.00"}
+                    </span>
+                    <span className="text-xs text-muted"> / mo</span>
+                  </div>
+                  <span className="text-[11px] text-muted truncate">
+                    {cheapestBill && secondCheapestBill
+                      ? `Saves ${money(secondCheapestBill.cost - cheapestBill.cost)} vs ${secondCheapestBill.model.name}`
+                      : cheapestBill
+                      ? cheapestBill.model.name
+                      : "5M in · 1M out standard"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Filter Bar & Model Selector */}
+              <div className="p-5 rounded-2xl border border-line bg-surface mb-6">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-wider font-semibold text-muted">FILTER & SELECT</p>
+                    <h2 className="serif text-xl font-medium text-ink">Model Catalog & Selection</h2>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-muted mono">
+                      {filteredModels.length} models match
+                    </span>
+                    {/* Segmented Table | Cards switch */}
+                    <div className="flex items-center border border-line rounded-lg p-0.5 bg-sunken">
+                      <button
+                        type="button"
+                        onClick={() => setViewMode("table")}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium cursor-pointer border-none ${
+                          viewMode === "table" ? "bg-surface text-ink shadow-xs" : "bg-transparent text-muted"
+                        }`}
                       >
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-mono text-muted">{model.lab}</span>
-                            <span className={`chip ${model.weights === "Open" ? "bg-[var(--tile-olive)]/60 text-[#2d3a12]" : ""}`}>
-                              {model.weights}
-                            </span>
-                          </div>
-                          <h3 className="serif text-lg font-medium text-ink mb-1">{model.name}</h3>
-                          <p className="text-[11px] text-muted mono mb-4">Released {model.releaseDate}</p>
-
-                          {/* 2x3 Stat grid */}
-                          <div className="grid grid-cols-2 gap-2 p-3 rounded-xl bg-sunken border border-line text-xs mb-3">
-                            <div>
-                              <span className="text-[10px] text-muted block">Context</span>
-                              <strong className="text-ink mono">{tokens(model.contextWindow)}</strong>
-                            </div>
-                            <div>
-                              <span className="text-[10px] text-muted block">Output</span>
-                              <strong className="text-ink mono">{tokens(model.maxOutput)}</strong>
-                            </div>
-                            <div>
-                              <span className="text-[10px] text-muted block">Input / 1M</span>
-                              <strong className="text-ink mono">{money(model.inputPricePerMillion)}</strong>
-                            </div>
-                            <div>
-                              <span className="text-[10px] text-muted block">Output / 1M</span>
-                              <strong className="text-ink mono">{money(model.outputPricePerMillion)}</strong>
-                            </div>
-                            <div>
-                              <span className="text-[10px] text-muted block">Intelligence</span>
-                              <strong className="text-ink mono">{model.intelligenceScore.toFixed(1)}/60</strong>
-                            </div>
-                            <div>
-                              <span className="text-[10px] text-muted block">Coding</span>
-                              <strong className="text-ink mono">{model.codingScore.toFixed(1)}/60</strong>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="pt-2 border-t border-line flex flex-wrap items-center justify-between gap-2 text-xs">
-                          <span className="text-muted">{model.providers.length} providers</span>
-                          <div className="flex items-center gap-3">
-                            <a href="/playground" className="font-semibold text-accent hover:underline">Try in Playground</a>
-                            <button
-                            type="button"
-                            onClick={() => updateSelection(model.id)}
-                            className="text-xs text-red-500 hover:underline cursor-pointer bg-transparent border-none"
-                          >
-                            Remove
-                          </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                        <TableIcon size={12} />
+                        <span>Table</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setViewMode("cards")}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium cursor-pointer border-none ${
+                          viewMode === "cards" ? "bg-surface text-ink shadow-xs" : "bg-transparent text-muted"
+                        }`}
+                      >
+                        <LayoutGrid size={12} />
+                        <span>Cards</span>
+                      </button>
+                    </div>
                   </div>
-                </section>
+                </div>
+
+                {/* Search and Filters */}
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                  <div className="sm:col-span-8">
+                    <label className="field w-full">
+                      <Search size={14} className="text-muted" />
+                      <input
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        placeholder="Search by model, lab, or provider..."
+                        className="flex-1 bg-transparent text-xs text-ink outline-none placeholder:text-muted"
+                      />
+                      {query && (
+                        <button
+                          type="button"
+                          onClick={() => setQuery("")}
+                          className="text-xs text-muted hover:text-ink cursor-pointer bg-transparent border-none"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </label>
+                  </div>
+
+                  <div className="sm:col-span-4">
+                    <label className="field cursor-pointer pr-1 text-xs">
+                      <span className="text-muted">Lab:</span>
+                      <select
+                        value={selectedLab}
+                        onChange={(e) => setSelectedLab(e.target.value)}
+                        className="cursor-pointer bg-transparent font-medium outline-none text-ink flex-1"
+                      >
+                        <option value="all">All Labs ({models.length})</option>
+                        {labOptions.map((opt) => (
+                          <option key={opt.name} value={opt.name}>
+                            {opt.name} ({opt.count})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Toggle Chips */}
+                <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-line">
+                  {TOGGLE_CHIPS.map((chip) => {
+                    const isActive = activeChips.includes(chip.id);
+                    return (
+                      <button
+                        key={chip.id}
+                        type="button"
+                        onClick={() => toggleChip(chip.id)}
+                        className={`h-8 rounded-[8px] border px-2.5 text-xs font-medium cursor-pointer transition-colors ${
+                          isActive
+                            ? "border-ink bg-ink text-on-ink"
+                            : "border-line bg-surface text-ink hover:bg-sunken"
+                        }`}
+                      >
+                        {chip.label}
+                      </button>
+                    );
+                  })}
+                  {activeChips.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveChips([])}
+                      className="text-xs text-muted hover:text-ink ml-1 cursor-pointer bg-transparent border-none"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+
+                {/* Active Model Chips */}
+                <div className="mt-3 pt-3 border-t border-line">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-muted">
+                      Active Comparison ({selectedModels.length}/{MAX_SELECTED_MODELS}):
+                    </span>
+                    {selectedModels.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedIds([])}
+                        className="text-[11px] text-muted hover:text-red-500 cursor-pointer bg-transparent border-none"
+                      >
+                        Clear selection
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {selectedModels.map((model) => (
+                      <span
+                        key={model.id}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-sunken text-xs text-ink"
+                      >
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ background: labColors[model.lab] || "#6b6a64" }}
+                        />
+                        <strong>{model.name}</strong>
+                        <span className="text-muted text-[11px]">({model.lab})</span>
+                        <button
+                          type="button"
+                          aria-label={`Remove ${model.name}`}
+                          onClick={() => updateSelection(model.id)}
+                          className="text-muted hover:text-red-500 ml-1 cursor-pointer bg-transparent border-none"
+                        >
+                          <X size={12} />
+                        </button>
+                      </span>
+                    ))}
+                    {selectedModels.length === 0 && (
+                      <span className="text-xs text-muted italic py-1">
+                        No models selected. Choose from candidates below.
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Available candidates */}
+                {availableModels.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-line">
+                    <span className="text-xs font-semibold text-muted block mb-2">
+                      + Add model to comparison
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {availableModels.map((model) => (
+                        <button
+                          key={model.id}
+                          type="button"
+                          disabled={selectedIds.length >= MAX_SELECTED_MODELS}
+                          onClick={() => updateSelection(model.id)}
+                          className="text-xs py-1.5 px-3 rounded-lg border border-line bg-surface hover:bg-sunken text-ink disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                        >
+                          <span className="font-bold mr-1">+</span>
+                          <span>{model.name}</span>
+                          <span className="text-muted text-[11px] ml-1">· {model.lab}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {!hasMinModels && (
+                <div className="p-5 rounded-2xl border border-line bg-sunken text-xs text-ink mb-6">
+                  <strong>Minimum selection required:</strong> Select at least two models to view the technical comparison matrix and cost estimator. You can select up to four models.
+                </div>
               )}
 
-              {/* OVERVIEW (Full Dashboard Snapshot) */}
-              {activeView === "overview" && viewMode === "table" && (
-                <>
-                  {/* Summary Cards */}
-                  <section className="space-y-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <p className="text-xs uppercase tracking-wider font-semibold text-muted">OVERVIEW SNAPSHOT</p>
-                        <h2 className="serif text-xl font-medium text-ink">Side-by-Side Model Summary</h2>
+              {/* DYNAMIC VIEW ROUTING */}
+              {hasMinModels && (
+                <div className="space-y-8">
+                  {/* CARDS MODE */}
+                  {(activeView === "overview" || viewMode === "cards") && viewMode === "cards" && (
+                    <section className="space-y-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h2 className="serif text-xl font-medium text-ink">Model Cards View</h2>
+                        <span className="text-xs text-muted mono">{selectedModels.length} models</span>
                       </div>
-                      <span className="chip font-mono">
-                        {selectedModels.length} models selected
-                      </span>
-                    </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                      {selectedModels.map((model) => {
-                        const isLowestIn = model.inputPricePerMillion === lowestInputRate;
-                        const isLowestOut = model.outputPricePerMillion === lowestOutputRate;
-                        return (
-                          <div className="p-5 rounded-2xl border border-line bg-surface" key={model.id}>
-                            <div className="flex items-center justify-between mb-3 gap-2">
-                              <div className="min-w-0">
-                                <h3 className="serif text-base font-medium text-ink truncate">
-                                  {model.name}
-                                </h3>
-                                <span className="text-xs text-muted block">{model.lab}</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {selectedModels.map((model) => (
+                          <div
+                            key={model.id}
+                            className="p-5 rounded-2xl border border-line bg-surface flex flex-col justify-between"
+                          >
+                            <div>
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs font-mono text-muted">{model.lab}</span>
+                                <span className={`chip ${model.weights === "Open" ? "bg-[var(--tile-olive)]/60 text-[#2d3a12]" : ""}`}>
+                                  {model.weights}
+                                </span>
                               </div>
-                              <span className={`chip ${model.weights === "Open" ? "bg-[var(--tile-olive)]/60 text-[#2d3a12]" : ""}`}>
-                                {model.weights}
-                              </span>
-                            </div>
+                              <h3 className="serif text-lg font-medium text-ink mb-1">{model.name}</h3>
+                              <p className="text-[11px] text-muted mono mb-4">Released {model.releaseDate}</p>
 
-                            <div className="p-3 rounded-xl bg-sunken border border-line text-xs space-y-2 mb-3">
-                              <div>
-                                <span className="text-[10px] text-muted block">Input rate</span>
-                                <div className="flex items-baseline gap-1.5 flex-wrap">
-                                  <span className="serif text-xl font-medium text-ink mono">
-                                    {money(model.inputPricePerMillion)}
-                                  </span>
-                                  <span className="text-xs text-muted">/ 1M</span>
-                                  {isLowestIn && <span className="badge-lowest shrink-0">Lowest</span>}
+                              {/* 2x3 Stat grid */}
+                              <div className="grid grid-cols-2 gap-2 p-3 rounded-xl bg-sunken border border-line text-xs mb-3">
+                                <div>
+                                  <span className="text-[10px] text-muted block">Context</span>
+                                  <strong className="text-ink mono">{tokens(model.contextWindow)}</strong>
+                                </div>
+                                <div>
+                                  <span className="text-[10px] text-muted block">Output</span>
+                                  <strong className="text-ink mono">{tokens(model.maxOutput)}</strong>
+                                </div>
+                                <div>
+                                  <span className="text-[10px] text-muted block">Input / 1M</span>
+                                  <strong className="text-ink mono">{money(model.inputPricePerMillion)}</strong>
+                                </div>
+                                <div>
+                                  <span className="text-[10px] text-muted block">Output / 1M</span>
+                                  <strong className="text-ink mono">{money(model.outputPricePerMillion)}</strong>
+                                </div>
+                                <div>
+                                  <span className="text-[10px] text-muted block">Intelligence</span>
+                                  <strong className="text-ink mono">{model.intelligenceScore.toFixed(1)}/60</strong>
+                                </div>
+                                <div>
+                                  <span className="text-[10px] text-muted block">Coding</span>
+                                  <strong className="text-ink mono">{model.codingScore.toFixed(1)}/60</strong>
                                 </div>
                               </div>
-
-                              <div>
-                                <span className="text-[10px] text-muted block">Output rate</span>
-                                <div className="flex items-baseline gap-1.5 flex-wrap">
-                                  <span className="serif text-base font-medium text-ink mono">
-                                    {money(model.outputPricePerMillion)}
-                                  </span>
-                                  <span className="text-xs text-muted">/ 1M</span>
-                                  {isLowestOut && <span className="badge-lowest shrink-0">Lowest</span>}
-                                </div>
-                              </div>
                             </div>
 
-                            <div className="text-xs space-y-1.5">
-                              <div className="flex justify-between text-muted">
-                                <span>Context Window:</span>
-                                <strong className="text-ink mono">{tokens(model.contextWindow)}</strong>
-                              </div>
-                              <div className="flex justify-between text-muted">
-                                <span>Coding Score:</span>
-                                <strong className="text-ink mono">{model.codingScore.toFixed(1)} / 60</strong>
-                              </div>
+                            <div className="pt-2 border-t border-line flex items-center justify-between text-xs">
+                              <button
+                                type="button"
+                                onClick={() => setActiveView("playground")}
+                                className="inline-flex items-center gap-1 text-xs text-accent hover:underline cursor-pointer bg-transparent border-none"
+                              >
+                                <Bot size={13} />
+                                <span>Try in playground</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updateSelection(model.id)}
+                                className="text-xs text-red-500 hover:underline cursor-pointer bg-transparent border-none"
+                              >
+                                Remove
+                              </button>
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-
-                  {/* Matrix Widget */}
-                  <section className="space-y-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <p className="text-xs uppercase tracking-wider font-semibold text-muted">SPECIFICATIONS MATRIX</p>
-                        <h2 className="serif text-xl font-medium text-ink">Side-by-Side Technical Comparison</h2>
+                        ))}
                       </div>
-                      <div className="flex items-center gap-1.5 text-xs text-muted md:hidden bg-sunken px-2.5 py-1 rounded border border-line">
-                        <MoveHorizontal size={14} className="shrink-0" />
-                        <span>Swipe sideways</span>
-                      </div>
-                    </div>
+                    </section>
+                  )}
 
-                    <div className="table-wrap" role="region" aria-label="Model comparison table" tabIndex={0}>
-                      <table>
-                        <thead>
-                          <tr>
-                            <th scope="col" className="spec-header-col">Specification</th>
-                            {selectedModels.map((model) => (
-                              <th scope="col" key={model.id} className="min-w-[170px]">
-                                <strong className="block text-ink text-sm font-semibold">{model.name}</strong>
-                                <span className="text-muted block mt-0.5 text-xs">{model.lab}</span>
-                                <span className="text-muted block mt-1.5 text-[11px]">
-                                  Released: {model.releaseDate}
-                                </span>
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {rows.map((row) => (
-                            <tr key={row.label}>
-                              <th scope="row" className="spec-header-col">{row.label}</th>
+                  {/* OVERVIEW (Full Dashboard Snapshot) */}
+                  {activeView === "overview" && viewMode === "table" && (
+                    <>
+                      {/* Summary Cards */}
+                      <section className="space-y-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <p className="text-xs uppercase tracking-wider font-semibold text-muted">OVERVIEW SNAPSHOT</p>
+                            <h2 className="serif text-xl font-medium text-ink">Side-by-Side Model Summary</h2>
+                          </div>
+                          <span className="chip font-mono">
+                            {selectedModels.length} models selected
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                          {selectedModels.map((model) => {
+                            const isLowestIn = model.inputPricePerMillion === lowestInputRate;
+                            const isLowestOut = model.outputPricePerMillion === lowestOutputRate;
+                            return (
+                              <div className="p-5 rounded-2xl border border-line bg-surface" key={model.id}>
+                                <div className="flex items-center justify-between mb-3 gap-2">
+                                  <div className="min-w-0">
+                                    <h3 className="serif text-base font-medium text-ink truncate">
+                                      {model.name}
+                                    </h3>
+                                    <span className="text-xs text-muted block">{model.lab}</span>
+                                  </div>
+                                  <span className={`chip ${model.weights === "Open" ? "bg-[var(--tile-olive)]/60 text-[#2d3a12]" : ""}`}>
+                                    {model.weights}
+                                  </span>
+                                </div>
+
+                                <div className="p-3 rounded-xl bg-sunken border border-line text-xs space-y-2 mb-3">
+                                  <div>
+                                    <span className="text-[10px] text-muted block">Input rate</span>
+                                    <div className="flex items-baseline gap-1.5 flex-wrap">
+                                      <span className="serif text-xl font-medium text-ink mono">
+                                        {money(model.inputPricePerMillion)}
+                                      </span>
+                                      <span className="text-xs text-muted">/ 1M</span>
+                                      {isLowestIn && <span className="badge-lowest shrink-0">Lowest</span>}
+                                    </div>
+                                  </div>
+
+                                  <div>
+                                    <span className="text-[10px] text-muted block">Output rate</span>
+                                    <div className="flex items-baseline gap-1.5 flex-wrap">
+                                      <span className="serif text-base font-medium text-ink mono">
+                                        {money(model.outputPricePerMillion)}
+                                      </span>
+                                      <span className="text-xs text-muted">/ 1M</span>
+                                      {isLowestOut && <span className="badge-lowest shrink-0">Lowest</span>}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="text-xs space-y-1.5">
+                                  <div className="flex justify-between text-muted">
+                                    <span>Context Window:</span>
+                                    <strong className="text-ink mono">{tokens(model.contextWindow)}</strong>
+                                  </div>
+                                  <div className="flex justify-between text-muted">
+                                    <span>Coding Score:</span>
+                                    <strong className="text-ink mono">{model.codingScore.toFixed(1)} / 60</strong>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
+
+                      {/* Matrix Widget */}
+                      <section className="space-y-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <p className="text-xs uppercase tracking-wider font-semibold text-muted">SPECIFICATIONS MATRIX</p>
+                            <h2 className="serif text-xl font-medium text-ink">Side-by-Side Technical Comparison</h2>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs text-muted md:hidden bg-sunken px-2.5 py-1 rounded border border-line">
+                            <MoveHorizontal size={14} className="shrink-0" />
+                            <span>Swipe sideways</span>
+                          </div>
+                        </div>
+
+                        <div className="table-wrap" role="region" aria-label="Model comparison table" tabIndex={0}>
+                          <table>
+                            <thead>
+                              <tr>
+                                <th scope="col" className="spec-header-col">Specification</th>
+                                {selectedModels.map((model) => (
+                                  <th scope="col" key={model.id} className="min-w-[170px]">
+                                    <strong className="block text-ink text-sm font-semibold">{model.name}</strong>
+                                    <span className="text-muted block mt-0.5 text-xs">{model.lab}</span>
+                                    <span className="text-muted block mt-1.5 text-[11px]">
+                                      Released: {model.releaseDate}
+                                    </span>
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {rows.map((row) => (
+                                <tr key={row.label}>
+                                  <th scope="row" className="spec-header-col">{row.label}</th>
+                                  {selectedModels.map((model) => (
+                                    <td key={model.id}>{row.value(model)}</td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </section>
+
+                      {/* Cost Estimator Widget */}
+                      <section className="space-y-3">
+                        <div className="mb-2">
+                          <p className="text-xs uppercase tracking-wider font-semibold text-muted">USAGE BILL PROJECTION</p>
+                          <h2 className="serif text-xl font-medium text-ink">Interactive Cost Calculator</h2>
+                        </div>
+                        <CostCalculator selectedModels={selectedModels} />
+                      </section>
+                    </>
+                  )}
+
+                  {/* COMPARE ONLY */}
+                  {activeView === "compare" && (
+                    <section className="space-y-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <p className="text-xs uppercase tracking-wider font-semibold text-muted">FULL MATRIX</p>
+                          <h2 className="serif text-2xl font-medium text-ink">Technical Comparison Matrix</h2>
+                          <p className="text-xs text-muted mt-1">
+                            Inspect specifications, benchmarks, modalities, and price highlights side by side.
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-xs text-muted md:hidden bg-sunken px-2.5 py-1 rounded border border-line">
+                          <MoveHorizontal size={14} className="shrink-0" />
+                          <span>Swipe sideways</span>
+                        </div>
+                      </div>
+
+                      <div className="table-wrap" role="region" aria-label="Model comparison table" tabIndex={0}>
+                        <table>
+                          <thead>
+                            <tr>
+                              <th scope="col" className="spec-header-col">Specification</th>
                               {selectedModels.map((model) => (
-                                <td key={model.id}>{row.value(model)}</td>
+                                <th scope="col" key={model.id} className="min-w-[170px]">
+                                  <strong className="block text-ink text-sm font-semibold">{model.name}</strong>
+                                  <span className="text-muted block mt-0.5 text-xs">{model.lab}</span>
+                                  <span className="text-muted block mt-1.5 text-[11px]">
+                                    Released: {model.releaseDate}
+                                  </span>
+                                </th>
                               ))}
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </section>
-
-                  {/* Cost Estimator Widget */}
-                  <section className="space-y-3">
-                    <div className="mb-2">
-                      <p className="text-xs uppercase tracking-wider font-semibold text-muted">USAGE BILL PROJECTION</p>
-                      <h2 className="serif text-xl font-medium text-ink">Interactive Cost Calculator</h2>
-                    </div>
-                    <CostCalculator selectedModels={selectedModels} />
-                  </section>
-                </>
-              )}
-
-              {/* COMPARE ONLY */}
-              {activeView === "compare" && (
-                <section className="space-y-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <p className="text-xs uppercase tracking-wider font-semibold text-muted">FULL MATRIX</p>
-                      <h2 className="serif text-2xl font-medium text-ink">Technical Comparison Matrix</h2>
-                      <p className="text-xs text-muted mt-1">
-                        Inspect specifications, benchmarks, modalities, and price highlights side by side.
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-xs text-muted md:hidden bg-sunken px-2.5 py-1 rounded border border-line">
-                      <MoveHorizontal size={14} className="shrink-0" />
-                      <span>Swipe sideways</span>
-                    </div>
-                  </div>
-
-                  <div className="table-wrap" role="region" aria-label="Model comparison table" tabIndex={0}>
-                    <table>
-                      <thead>
-                        <tr>
-                          <th scope="col" className="spec-header-col">Specification</th>
-                          {selectedModels.map((model) => (
-                            <th scope="col" key={model.id} className="min-w-[170px]">
-                              <strong className="block text-ink text-sm font-semibold">{model.name}</strong>
-                              <span className="text-muted block mt-0.5 text-xs">{model.lab}</span>
-                              <span className="text-muted block mt-1.5 text-[11px]">
-                                Released: {model.releaseDate}
-                              </span>
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rows.map((row) => (
-                          <tr key={row.label}>
-                            <th scope="row" className="spec-header-col">{row.label}</th>
-                            {selectedModels.map((model) => (
-                              <td key={model.id}>{row.value(model)}</td>
+                          </thead>
+                          <tbody>
+                            {rows.map((row) => (
+                              <tr key={row.label}>
+                                <th scope="row" className="spec-header-col">{row.label}</th>
+                                {selectedModels.map((model) => (
+                                  <td key={model.id}>{row.value(model)}</td>
+                                ))}
+                              </tr>
                             ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                          </tbody>
+                        </table>
+                      </div>
 
-                  <div className="pt-6">
-                    <CostCalculator selectedModels={selectedModels} />
-                  </div>
-                </section>
-              )}
+                      <div className="pt-6">
+                        <CostCalculator selectedModels={selectedModels} />
+                      </div>
+                    </section>
+                  )}
 
-              {/* ESTIMATOR ONLY */}
-              {activeView === "estimator" && (
-                <section className="space-y-4">
-                  <div className="mb-4">
-                    <p className="text-xs uppercase tracking-wider font-semibold text-muted">FINANCIAL ESTIMATION</p>
-                    <h2 className="serif text-2xl font-medium text-ink">Monthly API Cost Estimator</h2>
-                    <p className="text-xs text-muted mt-1">
-                      Adjust token volume controls or pick quick workload presets to simulate monthly spend.
-                    </p>
-                  </div>
-                  <CostCalculator selectedModels={selectedModels} />
-                </section>
-              )}
+                  {/* ESTIMATOR ONLY */}
+                  {activeView === "estimator" && (
+                    <section className="space-y-4">
+                      <div className="mb-4">
+                        <p className="text-xs uppercase tracking-wider font-semibold text-muted">FINANCIAL ESTIMATION</p>
+                        <h2 className="serif text-2xl font-medium text-ink">Monthly API Cost Estimator</h2>
+                        <p className="text-xs text-muted mt-1">
+                          Adjust token volume controls or pick quick workload presets to simulate monthly spend.
+                        </p>
+                      </div>
+                      <CostCalculator selectedModels={selectedModels} />
+                    </section>
+                  )}
 
-              {/* DETAILS ONLY */}
-              {activeView === "details" && (
-                <section>
-                  <ModelDetails selectedModels={selectedModels} />
-                </section>
-              )}
+                  {/* DETAILS ONLY */}
+                  {activeView === "details" && (
+                    <section>
+                      <ModelDetails selectedModels={selectedModels} />
+                    </section>
+                  )}
 
-              {/* ABOUT & METHODOLOGY */}
-              {activeView === "about" && (
-                <section className="p-6 sm:p-8 rounded-2xl border border-line bg-surface space-y-4 max-w-3xl">
-                  <p className="text-xs uppercase tracking-wider font-semibold text-muted">ASSESSMENT METHODOLOGY</p>
-                  <h2 className="serif text-2xl font-medium text-ink">Make the assumptions visible.</h2>
-                  <p className="text-sm text-ink-2 leading-relaxed">
-                    The comparison experience uses an illustrative local catalog. Prices, provider listings, release dates, and benchmark scores are demonstration data designed for this Frontend Engineering Assessment.
-                  </p>
-                  <div className="pt-4 border-t border-line space-y-2 text-xs text-muted">
-                    <p>• <strong>Stack</strong>: Next.js 16 App Router, React 19, TypeScript, Tailwind CSS 4.</p>
-                    <p>• <strong>Theme</strong>: OneAtlas warm cream/charcoal design system with pastel tiles.</p>
-                    <p>• <strong>URL State</strong>: Active selection synchronizes to <code>/compare?models=...</code> via <code>history.replaceState</code>.</p>
-                    <p>• <strong>Cost Formula</strong>: <code>(input ÷ 1M × input rate) + (output ÷ 1M × output rate)</code>.</p>
-                  </div>
-                </section>
+                  {/* ABOUT & METHODOLOGY */}
+                  {activeView === "about" && (
+                    <section className="p-6 sm:p-8 rounded-2xl border border-line bg-surface space-y-4 max-w-3xl">
+                      <p className="text-xs uppercase tracking-wider font-semibold text-muted">ASSESSMENT METHODOLOGY</p>
+                      <h2 className="serif text-2xl font-medium text-ink">Make the assumptions visible.</h2>
+                      <p className="text-sm text-ink-2 leading-relaxed">
+                        The comparison experience uses an illustrative local catalog. Prices, provider listings, release dates, and benchmark scores are demonstration data designed for this Frontend Engineering Assessment.
+                      </p>
+                      <div className="pt-4 border-t border-line space-y-2 text-xs text-muted">
+                        <p>• <strong>Stack</strong>: Next.js 16 App Router, React 19, TypeScript, Tailwind CSS 4.</p>
+                        <p>• <strong>Theme</strong>: OneAtlas warm cream/charcoal design system with pastel tiles.</p>
+                        <p>• <strong>URL State</strong>: Active selection synchronizes to <code>/compare?models=...</code> via <code>history.replaceState</code>.</p>
+                        <p>• <strong>Cost Formula</strong>: <code>(input ÷ 1M × input rate) + (output ÷ 1M × output rate)</code>.</p>
+                      </div>
+                    </section>
+                  )}
+                </div>
               )}
-            </div>
+            </>
           )}
 
           {/* Footer */}
           <footer className="mt-12 pt-6 border-t border-line flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted">
             <div className="flex items-center gap-2">
               <BrandLogo />
-              <span>· An independent directory of AI models.</span>
+              <span>· An independent directory & playground for AI models.</span>
             </div>
-            <span>Frontend Engineering Assessment · Next.js 16 + React 19 + Tailwind CSS 4</span>
+            <span>Next.js 16 + React 19 + Tailwind CSS 4</span>
             <button
               type="button"
               onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
@@ -1229,7 +1295,9 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
                   return (
                     <div
                       key={m.id}
-                      onClick={() => updateSelection(m.id)}
+                      onClick={() => {
+                        updateSelection(m.id);
+                      }}
                       className={`flex items-center justify-between p-2.5 rounded-lg cursor-pointer transition-colors ${
                         isSelected
                           ? "bg-sunken border border-line text-ink"
@@ -1256,9 +1324,22 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
                           </div>
                         </div>
                       </div>
-                      <span className="text-xs mono text-ink">
-                        {isSelected ? "Remove" : "+ Compare"}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveView("playground");
+                            setCmdkOpen(false);
+                          }}
+                          className="text-[11px] px-2 py-1 rounded bg-surface border border-line text-accent hover:bg-sunken cursor-pointer"
+                        >
+                          Playground
+                        </button>
+                        <span className="text-xs mono text-ink">
+                          {isSelected ? "Remove" : "+ Compare"}
+                        </span>
+                      </div>
                     </div>
                   );
                 })}

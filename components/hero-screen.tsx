@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { BrandLogo } from "@/components/brand-logo";
 
 interface HeroScreenProps {
-  onLaunch: (tab?: "compare" | "estimator" | "details" | "all") => void;
+  onLaunch: (tab?: "compare" | "estimator" | "playground" | "history" | "details" | "all") => void;
 }
 
 const MONTHS_DATA = [
@@ -72,6 +72,13 @@ export function HeroScreen({ onLaunch }: HeroScreenProps) {
                 autoFocus
               >
                 Launch workspace
+              </button>
+              <button
+                type="button"
+                className="btn btn-line"
+                onClick={() => onLaunch("playground")}
+              >
+                AI Playground
               </button>
               <button
                 type="button"
