@@ -52,6 +52,9 @@ export async function POST(request: Request) {
   if (messages[messages.length - 1]?.role !== "user") {
     return NextResponse.json({ error: "The final message must be a user prompt." }, { status: 400 });
   }
+  if (!validSessionId(input.sessionId)) {
+    return NextResponse.json({ error: "A valid browser session is required." }, { status: 400 });
+  }
 
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
@@ -104,7 +107,7 @@ export async function POST(request: Request) {
     const db = getUsageDatabase();
     const result = db.prepare(
       "INSERT INTO usage_history (session_id, model, prompt, response, tokens_used) VALUES (?, ?, ?, ?, ?)",
-    ).run(input.sessionId as string, input.model, prompt, responseText, tokensUsed);
+    ).run(input.sessionId, input.model, prompt, responseText, tokensUsed);
     historySaved = Number(result.changes) === 1;
   } catch (error) {
     console.error("Usage history save failed:", error instanceof Error ? error.message : "Unknown database error");
