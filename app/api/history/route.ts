@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getUsageDatabase } from "@/lib/usage-history-db";
 
 export const runtime = "nodejs";
 
@@ -12,29 +13,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "A valid browser session is required." }, { status: 400 });
   }
 
-  const databaseUrl = process.env.SUPABASE_URL?.replace(/\/$/, "");
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!databaseUrl || !serviceKey) {
-    return NextResponse.json({ error: "Usage history is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }, { status: 503 });
-  }
-
   try {
-    const response = await fetch(
-      `${databaseUrl}/rest/v1/usage_history?select=id,model,prompt,response,tokens_used,created_at&session_id=eq.${encodeURIComponent(sessionId)}&order=created_at.desc&limit=50`,
-      {
-        headers: {
-          apikey: serviceKey,
-          Authorization: `Bearer ${serviceKey}`,
-          Accept: "application/json",
-        },
-        signal: AbortSignal.timeout(8000),
-      },
-    );
-    if (!response.ok) {
-      return NextResponse.json({ error: "Could not load usage history. Check the database table setup." }, { status: 502 });
-    }
-    return NextResponse.json({ items: await response.json() });
-  } catch {
-    return NextResponse.json({ error: "The database could not be reached." }, { status: 502 });
+    const db = getUsageDatabase();
+    const items = db.prepare(
+      "SELECT id, model, prompt, response, tokens_used, created_at FROM usage_history WHERE session_id = ? ORDER BY created_at DESC, id DESC LIMIT 50",
+    ).all(sessionId);
+    return NextResponse.json({ items });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "The database could not be reached.";
+    const status = message.includes("Vercel") ? 503 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }
