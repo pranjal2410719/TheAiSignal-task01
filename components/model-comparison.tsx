@@ -467,6 +467,14 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
               <Info size={16} className="shrink-0" />
               <span>Methodology</span>
             </button>
+            <a href="/playground" className="sidebar-nav-item">
+              <Sparkles size={16} className="shrink-0" />
+              <span>AI Playground</span>
+            </a>
+            <a href="/history" className="sidebar-nav-item">
+              <Columns size={16} className="shrink-0" />
+              <span>Usage History</span>
+            </a>
           </nav>
         </div>
 
@@ -928,15 +936,18 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
                           </div>
                         </div>
 
-                        <div className="pt-2 border-t border-line flex items-center justify-between text-xs">
+                        <div className="pt-2 border-t border-line flex flex-wrap items-center justify-between gap-2 text-xs">
                           <span className="text-muted">{model.providers.length} providers</span>
-                          <button
+                          <div className="flex items-center gap-3">
+                            <a href="/playground" className="font-semibold text-accent hover:underline">Try in Playground</a>
+                            <button
                             type="button"
                             onClick={() => updateSelection(model.id)}
                             className="text-xs text-red-500 hover:underline cursor-pointer bg-transparent border-none"
                           >
                             Remove
                           </button>
+                          </div>
                         </div>
                       </div>
                     ))}
