@@ -1,14 +1,36 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Check, Clock3, Copy, LoaderCircle, MessageSquare, Send, Sparkles, Trash2 } from "lucide-react";
+import { Bot, Check, Clock3, Copy, LoaderCircle, MessageSquare, Sparkles, Trash2 } from "lucide-react";
 import { ChatMarkdown } from "./chat-markdown";
+import AI_Prompt, { type PromptCommand, type PromptModel } from "@/components/kokonutui/ai-prompt";
 
 export const PLAYGROUND_MODELS = [
   { id: "openrouter/free", label: "Auto-select available free model", lab: "Auto" },
   { id: "meta-llama/llama-3.3-70b-instruct:free", label: "Llama 3.3 70B · Free", lab: "Meta" },
   { id: "deepseek/deepseek-chat-v3-0324:free", label: "DeepSeek Chat · Free", lab: "DeepSeek" },
 ] as const;
+
+const PROMPT_MODELS: PromptModel[] = [
+  {
+    name: "Auto-select available free model",
+    description: "Routes to the fastest available free OpenRouter model",
+    efforts: ["Low", "Medium", "High"],
+    defaultEffort: "Medium",
+  },
+  {
+    name: "Llama 3.3 70B · Free",
+    description: "Meta open weights 70B parameter model",
+    efforts: ["Low", "Medium", "High"],
+    defaultEffort: "High",
+  },
+  {
+    name: "DeepSeek Chat · Free",
+    description: "DeepSeek V3 general chat reasoning model",
+    efforts: ["Low", "Medium", "High"],
+    defaultEffort: "High",
+  },
+];
 
 type Message = { role: "user" | "assistant"; content: string; timestamp?: string };
 
@@ -72,11 +94,9 @@ export function DashboardPlayground({ onOpenHistory, selectedModelId }: Dashboar
     return "openrouter/free";
   });
   const [messages, setMessages] = useState<Message[]>([]);
-  const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const [prevSelectedId, setPrevSelectedId] = useState(selectedModelId);
@@ -96,68 +116,114 @@ export function DashboardPlayground({ onOpenHistory, selectedModelId }: Dashboar
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, busy]);
 
-  const sendMessage = useCallback(async () => {
-    const content = draft.trim();
-    if (!content || busy) return;
-    if (content.length > 12000) {
-      setError("Keep each message under 12,000 characters.");
-      return;
-    }
+  const submitMessage = useCallback(
+    async (content: string, targetModelId: string, signal?: AbortSignal) => {
+      const trimmed = content.trim();
+      if (!trimmed || busy) return;
+      if (trimmed.length > 12000) {
+        setError("Keep each message under 12,000 characters.");
+        return;
+      }
 
-    const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    const nextMessages: Message[] = [...messages, { role: "user", content, timestamp }];
-    setMessages(nextMessages);
-    setDraft("");
-    setBusy(true);
-    setError("");
-    setNotice("");
+      const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const nextMessages: Message[] = [...messages, { role: "user", content: trimmed, timestamp }];
+      setMessages(nextMessages);
+      setBusy(true);
+      setError("");
+      setNotice("");
 
-    // Sliding window: send up to last 16 messages to stay comfortably below the server's message limit
-    const payloadMessages = nextMessages.length > 16 ? nextMessages.slice(-16) : nextMessages;
+      const payloadMessages = nextMessages.length > 16 ? nextMessages.slice(-16) : nextMessages;
 
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          messages: payloadMessages.map(({ role, content: msgContent }) => ({ role, content: msgContent })),
-          sessionId: getSessionId(),
-        }),
-      });
-      const data = (await response.json()) as {
-        response?: string;
-        error?: string;
-        tokensUsed?: number | null;
-        historySaved?: boolean;
-      };
-      if (!response.ok || !data.response) throw new Error(data.error || "The request failed.");
-      
-      const assistantTimestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      setMessages((current) => [...current, { role: "assistant", content: data.response!, timestamp: assistantTimestamp }]);
-      setNotice(
-        data.historySaved
-          ? `Saved to history · ${data.tokensUsed ?? "—"} tokens`
-          : "Response received · history is not configured yet"
-      );
-    } catch (cause) {
-      setMessages((current) =>
-        current.filter(
-          (message, index) => !(index === current.length - 1 && message.role === "user" && message.content === content)
-        )
-      );
-      setDraft(content);
-      setError(cause instanceof Error ? cause.message : "Something went wrong. Please try again.");
-    } finally {
-      setBusy(false);
-      textareaRef.current?.focus();
-    }
-  }, [busy, draft, messages, model]);
+      try {
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal,
+          body: JSON.stringify({
+            model: targetModelId,
+            messages: payloadMessages.map(({ role, content: msgContent }) => ({ role, content: msgContent })),
+            sessionId: getSessionId(),
+          }),
+        });
+        const data = (await response.json()) as {
+          response?: string;
+          error?: string;
+          tokensUsed?: number | null;
+          historySaved?: boolean;
+        };
+        if (!response.ok || !data.response) throw new Error(data.error || "The request failed.");
+
+        const assistantTimestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        setMessages((current) => [...current, { role: "assistant", content: data.response!, timestamp: assistantTimestamp }]);
+        setNotice(
+          data.historySaved
+            ? `Saved to history · ${data.tokensUsed ?? "—"} tokens`
+            : "Response received · history is not configured yet"
+        );
+      } catch (cause) {
+        if (signal?.aborted) {
+          setNotice("Response generation stopped.");
+          return;
+        }
+        setMessages((current) =>
+          current.filter(
+            (message, index) => !(index === current.length - 1 && message.role === "user" && message.content === trimmed)
+          )
+        );
+        setError(cause instanceof Error ? cause.message : "Something went wrong. Please try again.");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [busy, messages]
+  );
+
+  const handlePromptSubmit = useCallback(
+    async (
+      val: string,
+      modelName: string,
+      options: {
+        effort: string | null;
+        files: File[];
+        signal: AbortSignal;
+        command: PromptCommand | null;
+      }
+    ) => {
+      const match = PLAYGROUND_MODELS.find((m) => m.label === modelName || m.id === modelName);
+      const targetId = match?.id ?? model;
+      if (targetId !== model) {
+        setModel(targetId);
+      }
+
+      let content = val.trim();
+      if (options.command) {
+        content = `[${options.command.label.toUpperCase()}]\n${content}`;
+      }
+      if (options.files && options.files.length > 0) {
+        const fileTexts = await Promise.all(
+          options.files.map(async (file) => {
+            try {
+              if (file.type.startsWith("text/") || /\.(txt|md|json|ts|js|py|html|css|csv)$/i.test(file.name)) {
+                const text = await file.text();
+                return `\n\n--- Attachment: ${file.name} ---\n${text}`;
+              }
+              return `\n\n[Attachment: ${file.name} (${file.size} bytes)]`;
+            } catch {
+              return `\n\n[Attachment: ${file.name}]`;
+            }
+          })
+        );
+        content += fileTexts.join("");
+      }
+
+      await submitMessage(content, targetId, options.signal);
+    },
+    [model, submitMessage]
+  );
 
   const clearConversation = () => {
     if (busy) return;
     setMessages([]);
-    setDraft("");
     setError("");
     setNotice("");
   };
@@ -198,7 +264,7 @@ export function DashboardPlayground({ onOpenHistory, selectedModelId }: Dashboar
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] gap-5">
         {/* Chat Conversation Card */}
-        <div className="flex flex-col min-h-[580px] max-h-[750px] rounded-2xl border border-line bg-surface overflow-hidden">
+        <div className="flex flex-col min-h-[660px] lg:h-[740px] rounded-2xl border border-line bg-surface overflow-hidden">
           {/* Chat Header Bar */}
           <div className="flex items-center justify-between p-3.5 sm:p-4 border-b border-line bg-surface">
             <div className="flex items-center gap-2.5">
@@ -243,7 +309,7 @@ export function DashboardPlayground({ onOpenHistory, selectedModelId }: Dashboar
                       <button
                         key={suggestion}
                         type="button"
-                        onClick={() => setDraft(suggestion)}
+                        onClick={() => void submitMessage(suggestion, model)}
                         className="rounded-full border border-line bg-surface px-3 py-1.5 text-xs text-ink hover:bg-sunken cursor-pointer transition-colors"
                       >
                         {suggestion}
@@ -308,50 +374,26 @@ export function DashboardPlayground({ onOpenHistory, selectedModelId }: Dashboar
             )}
           </div>
 
-          {/* Input Form */}
-          <form
-            className="border-t border-line p-3 sm:p-4 bg-surface"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void sendMessage();
-            }}
-          >
-            <textarea
-              ref={textareaRef}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  void sendMessage();
-                }
-              }}
-              rows={2}
-              maxLength={12000}
-              placeholder="Ask a question, enter instructions, or paste code… (Enter to send, Shift+Enter for newline)"
-              className="w-full resize-none rounded-xl border border-line bg-canvas p-3 text-xs sm:text-sm text-ink outline-none focus:border-accent"
-              disabled={busy}
+          {/* Kokonut UI AI Prompt Input */}
+          <div className="border-t border-line px-3 sm:px-4 py-2 bg-surface">
+            <AI_Prompt
+              key={model}
+              models={PROMPT_MODELS}
+              defaultModel={activeModel.label}
+              headerText="OpenRouter free inference tier · Zero API key exposure"
+              headerAction="Auto-select"
+              promotedModel="Auto-select available free model"
+              placeholder="Ask a question, enter instructions, or type / for commands… (Esc to stop)"
+              onSubmit={handlePromptSubmit}
+              className="w-full max-w-none py-1"
             />
-            <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
-              <span className="text-[11px] text-muted">
-                {draft.length.toLocaleString()} / 12,000 characters
-              </span>
-              <button
-                type="submit"
-                disabled={busy || !draft.trim()}
-                className="btn btn-ink text-xs py-1.5 px-4 h-8 font-semibold disabled:opacity-40"
-              >
-                <Send size={13} />
-                <span>{busy ? "Generating…" : "Send prompt"}</span>
-              </button>
-            </div>
             {error && (
               <p role="alert" className="mt-2 text-xs text-red-500 bg-red-50 dark:bg-red-950/30 p-2 rounded-lg border border-red-200 dark:border-red-900/50">
                 {error}
               </p>
             )}
             {notice && <p className="mt-2 text-xs text-muted">{notice}</p>}
-          </form>
+          </div>
         </div>
 
         {/* Settings & Info Sidebar */}
