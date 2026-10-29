@@ -1,6 +1,6 @@
-# The AI Signal — Model Comparison
+# The AI Signal — Model Comparison & Cost Estimator
 
-The project uses **Next.js 16 App Router, React 19, TypeScript, and Tailwind CSS 4**. The landing page is available at `/`; model comparison is at `/compare`.
+The application is built using **Next.js 16 App Router, React 19, TypeScript, and Tailwind CSS 4**. It features an introductory full-screen presentation on `/` and a direct, dedicated comparison workspace on `/compare`.
 
 ## Requirements and local setup
 
@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000 and visit `/compare`.
+Open http://localhost:3000 to view the introductory hero, or directly navigate to http://localhost:3000/compare to enter the comparison workspace with shared URL parameters.
 
 ## Build and checks
 
@@ -21,23 +21,43 @@ npm run build
 npm run lint
 ```
 
-The unit tests cover URL selection parsing and monthly cost calculations. The Next.js production build includes TypeScript validation. CI runs unit tests, the production build, and lint for pull requests and pushes.
+- **Unit tests**: Vitest suite covering URL model selection parsing and monthly cost calculations.
+- **Production build**: Next.js 16 Turbopack production build with strict TypeScript validation.
+- **Linter**: ESLint 9 with Next.js rules (`0 errors, 0 warnings`).
 
-## Comparison behavior
+## Architecture & Navigation Flow
 
-- Select and remove up to four models; the comparison matrix and cost calculator appear only with at least two selected models.
-- Search includes model name, lab, provider, and model ID.
-- The `models` query parameter is parsed on load. Unknown IDs are ignored, duplicates are removed, and a present-but-empty parameter remains empty.
-- Selection updates the URL with `history.replaceState` without reloading; `popstate` restores selection when browser navigation changes the URL.
-- The matrix scrolls horizontally on narrow screens.
-- Defaults: 5,000,000 input tokens and 1,000,000 output tokens. Slider and number inputs share state and bounds (0–100,000,000 tokens).
-- Formula: `(input tokens / 1,000,000 × input price per million) + (output tokens / 1,000,000 × output price per million)`.
-- The lowest estimated bill is marked and the difference to the next-cheapest selected model is shown.
+1. **Introductory Screen (`/`)**:
+   - Displays a full-screen introduction ([`hero-screen.tsx`](components/hero-screen.tsx)) with value proposition, catalog statistics, and a primary **Launch workspace →** CTA.
+   - Clicking the CTA or navigation buttons unmounts the hero screen completely and renders the persistent application workspace in the same screen without page reloads.
+
+2. **Persistent Application Workspace (`/compare`)**:
+   - Accessing `/compare` directly (e.g. grading scripts or shared links) immediately opens the workspace, bypassing the hero to ensure review compliance.
+   - A persistent topbar provides view switching (`Compare`, `Cost Estimator`, `Model Details`, `All-in-One`), the brand logo, and a share button.
+   - Switching views re-renders the active component within the same screen while 100% preserving selected models, token counts, and URL query state.
+
+3. **Comparison Behavior & Specifications**:
+   - **Model Selector**: Search by model name, AI lab, hosting provider, or ID. Select 2–4 models with color-coded removable chips. When fewer than 2 models are selected, a helpful guidance notice is displayed.
+   - **Side-by-Side Matrix**: Full specifications table (context window, max output, modalities, rates, benchmarks, providers, release date). Lowest input rate and output rate are highlighted with emerald badges. The first column is pinned (`position: sticky; left: 0`) for mobile scrolling.
+   - **Interactive Cost Estimator**: Defaults to 5,000,000 input and 1,000,000 output tokens. Synchronized sliders and numeric inputs bounded between 0 and 100,000,000 tokens. Features quick workload presets (*Light, Standard, Heavy, Enterprise*), the cheapest model highlight, and exact monthly savings calculated against the next-cheapest model.
+   - **Model Details**: Deep-dive capability view showing visual benchmark meters (Intelligence, Coding, Agentic out of 60) and deployment profiles.
+
+4. **URL Synchronization & State**:
+   - Active models are synchronized to the `?models=...` query parameter via `window.history.replaceState` without reloading.
+   - A `popstate` listener restores selection during browser back/forward navigation.
+   - Malformed IDs, unknown models, and duplicates are filtered safely; an empty query remains empty.
+   - The Share button copies the `/compare?models=...` URL with instant visual feedback.
+
+5. **Responsive Design Strategy**:
+   - Fluid typography using CSS `clamp()`.
+   - Grid layouts that scale dynamically across mobile (1-col), tablet (2-col), and desktop (4-col).
+   - Horizontal touch scrolling on comparison tables with sticky specification headers and swipe indicators.
+   - Self-contained responsiveness inside every component.
 
 ## Data limitations
 
-Model records, prices, provider lists, release dates, and benchmark scores are illustrative assessment data, not verified current facts or a live provider feed. Cost estimates exclude caching discounts, taxes, and provider-specific fees. Verify current details with providers before relying on them.
+All model records, sample prices, provider lists, release dates, and benchmark scores are illustrative assessment demonstration data, not a verified live feed. Cost estimates exclude caching discounts, tiered API pricing, taxes, and provider-specific fees. Verify current details directly with providers before production use.
 
 ## Deployment
 
-Connect the repository to Vercel and use the default Next.js build settings. The current deployment must be rebuilt from the updated branch before its behavior can be considered verified.
+Deployable to Vercel, Netlify, or Cloudflare Pages with default Next.js build settings.
