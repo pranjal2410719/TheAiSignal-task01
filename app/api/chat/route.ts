@@ -5,8 +5,6 @@ export const runtime = "nodejs";
 const ALLOWED_MODELS = new Set([
   "openrouter/free",
   "meta-llama/llama-3.3-70b-instruct:free",
-  "google/gemini-2.0-flash-001",
-  "openai/gpt-4o-mini",
   "deepseek/deepseek-chat-v3-0324:free",
 ]);
 
@@ -65,7 +63,7 @@ export async function POST(request: Request) {
         "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "https://theaisignal.vercel.app",
         "X-Title": "The AI Signal Playground",
       },
-      body: JSON.stringify({ model: input.model, messages, stream: false }),
+      body: JSON.stringify({ model: input.model, messages, stream: false, max_tokens: 2048 }),
       signal: AbortSignal.timeout(60000),
     });
   } catch {
@@ -91,6 +89,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "The AI provider returned an empty or unsupported response." }, { status: 502 });
   }
 
+  const lastMessage = messages[messages.length - 1];
+  if (lastMessage.role !== "user") {
+    return NextResponse.json({ error: "The final message must be a user prompt." }, { status: 400 });
+  }
   const prompt = [...messages].reverse().find((message) => message.role === "user")?.content || "";
   const tokensUsed = Number.isFinite(payload?.usage?.total_tokens) ? payload!.usage!.total_tokens! : null;
   let historySaved = false;
