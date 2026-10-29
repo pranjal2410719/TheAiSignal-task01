@@ -22,8 +22,6 @@ export default function HistoryPage() {
   const [error, setError] = useState("");
 
   const loadHistory = useCallback(async () => {
-    setLoading(true);
-    setError("");
     try {
       const response = await fetch(`/api/history?sessionId=${encodeURIComponent(getSessionId())}`, { cache: "no-store" });
       const data = await response.json() as { items?: HistoryItem[]; error?: string };
@@ -46,7 +44,7 @@ export default function HistoryPage() {
             <Link href="/playground" className="grid h-10 w-10 place-items-center rounded-xl border border-line bg-surface hover:bg-sunken" aria-label="Back to playground"><ArrowLeft size={17} /></Link>
             <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">The AI Signal</p><h1 className="serif text-2xl font-semibold sm:text-3xl">Usage history</h1></div>
           </div>
-          <div className="flex gap-2"><Link href="/playground" className="rounded-lg border border-line px-3 py-2 text-sm hover:bg-sunken">Playground</Link><button type="button" onClick={() => void loadHistory()} disabled={loading} className="inline-flex items-center gap-2 rounded-lg bg-ink px-3 py-2 text-sm text-on-ink disabled:opacity-50"><RefreshCw size={14} /> Refresh</button></div>
+          <div className="flex gap-2"><Link href="/playground" className="rounded-lg border border-line px-3 py-2 text-sm hover:bg-sunken">Playground</Link><button type="button" onClick={() => { setLoading(true); setError(""); void loadHistory(); }} disabled={loading} className="inline-flex items-center gap-2 rounded-lg bg-ink px-3 py-2 text-sm text-on-ink disabled:opacity-50"><RefreshCw size={14} /> Refresh</button></div>
         </header>
 
         <div className="py-6">
