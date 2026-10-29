@@ -13,6 +13,22 @@
   --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, monospace;
   --font-serif: "Source Serif 4", ui-serif, Georgia, serif;
+  --color-blue-500: #3b82f6;
+  --color-sky-400: #38bdf8;
+  --color-background: var(--canvas);
+  --color-foreground: var(--ink);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--ink);
+  --color-muted-foreground: var(--muted);
+  --color-primary: var(--ink);
+  --color-primary-foreground: var(--on-ink);
+  --color-secondary: var(--sunken);
+  --color-secondary-foreground: var(--ink);
+  --color-sidebar: var(--surface);
+  --color-sidebar-foreground: var(--ink);
+  --color-expense: #3b82f6;
+  --color-profit: #38bdf8;
+  --color-earning: #38bdf8;
 }
 
 :root {
@@ -44,6 +60,13 @@
   --surface-2: var(--sunken);
   --surface-3: var(--accent-soft);
   --overlay: rgba(0, 0, 0, 0.35);
+
+  /* Chart tokens */
+  --color-blue-500: #3b82f6;
+  --color-sky-400: #38bdf8;
+  --color-expense: #3b82f6;
+  --color-profit: #38bdf8;
+  --color-earning: #38bdf8;
 }
 
 .dark {
@@ -75,6 +98,13 @@
   --surface-2: var(--sunken);
   --surface-3: var(--accent-soft);
   --overlay: rgba(0, 0, 0, 0.65);
+
+  /* Chart tokens */
+  --color-blue-500: #3b82f6;
+  --color-sky-400: #38bdf8;
+  --color-expense: #3b82f6;
+  --color-profit: #38bdf8;
+  --color-earning: #38bdf8;
 }
 
 * {
