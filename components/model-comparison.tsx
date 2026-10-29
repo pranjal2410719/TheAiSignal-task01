@@ -868,7 +868,7 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
                         <span>{model.name}</span>
                         <span className="text-muted text-[11px] ml-1">· {model.lab}</span>
                       </button>
-                      <a href={`/playground?catalogModel=${encodeURIComponent(model.id)}`} className="whitespace-nowrap text-[11px] font-semibold text-accent hover:underline">Try in Playground</a>
+                      <a href="/playground" className="whitespace-nowrap text-[11px] font-semibold text-accent hover:underline">Try in Playground</a>
                     </div>
                   ))}
                 </div>
@@ -941,7 +941,7 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
                         <div className="pt-2 border-t border-line flex flex-wrap items-center justify-between gap-2 text-xs">
                           <span className="text-muted">{model.providers.length} providers</span>
                           <div className="flex items-center gap-3">
-                            <a href={`/playground?catalogModel=${encodeURIComponent(model.id)}`} className="font-semibold text-accent hover:underline">Try in Playground</a>
+                            <a href="/playground" className="font-semibold text-accent hover:underline">Try in Playground</a>
                             <button
                             type="button"
                             onClick={() => updateSelection(model.id)}
