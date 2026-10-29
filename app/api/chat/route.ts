@@ -48,6 +48,10 @@ export async function POST(request: Request) {
     messages.push({ role: item.role, content: item.content });
   }
 
+  if (messages[messages.length - 1]?.role !== "user") {
+    return NextResponse.json({ error: "The final message must be a user prompt." }, { status: 400 });
+  }
+
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: "The server is missing OPENROUTER_API_KEY. Add it to the deployment environment." }, { status: 503 });
@@ -89,10 +93,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "The AI provider returned an empty or unsupported response." }, { status: 502 });
   }
 
-  const lastMessage = messages[messages.length - 1];
-  if (lastMessage.role !== "user") {
-    return NextResponse.json({ error: "The final message must be a user prompt." }, { status: 400 });
-  }
   const prompt = [...messages].reverse().find((message) => message.role === "user")?.content || "";
   const tokensUsed = Number.isFinite(payload?.usage?.total_tokens) ? payload!.usage!.total_tokens! : null;
   let historySaved = false;
