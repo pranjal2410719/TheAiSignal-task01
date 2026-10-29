@@ -14,11 +14,9 @@ import {
   LayoutDashboard,
   LayoutGrid,
   Menu,
-  Moon,
   MoveHorizontal,
   Search,
   Sparkles,
-  Sun,
   Table as TableIcon,
   X,
   Zap,
@@ -29,6 +27,7 @@ import { ModelDetails } from "@/components/model-details";
 import { DashboardPlayground } from "@/components/dashboard-playground";
 import { DashboardHistory } from "@/components/dashboard-history";
 import { BrandLogo } from "@/components/brand-logo";
+import SwitchButton from "@/components/kokonutui/switch-button";
 import { DEFAULT_MODEL_IDS, MAX_SELECTED_MODELS, MIN_SELECTED_MODELS, models } from "@/lib/models";
 import type { ModelRecord } from "@/lib/types";
 import { estimateMonthlyCost, parseModelSelection } from "@/lib/comparison";
@@ -579,14 +578,13 @@ export function ModelComparison({
         <div className="sidebar-footer">
           <div className="flex items-center justify-between">
             <span className="text-[11px] text-muted">Theme Palette</span>
-            <button
-              type="button"
-              onClick={() => setDark(!dark)}
-              className="grid h-6 w-6 place-items-center rounded border border-line text-muted hover:text-ink cursor-pointer bg-transparent"
+            <SwitchButton
+              theme={dark ? "dark" : "light"}
+              onThemeChange={(t) => setDark(t === "dark")}
+              size="sm"
+              showLabel={false}
               aria-label="Toggle theme"
-            >
-              {dark ? <Sun size={12} /> : <Moon size={12} />}
-            </button>
+            />
           </div>
         </div>
       </aside>
@@ -642,15 +640,14 @@ export function ModelComparison({
             </button>
 
             {/* Dark Mode Switcher */}
-            <button
-              type="button"
-              onClick={() => setDark(!dark)}
-              className="grid h-9 w-9 place-items-center rounded-lg border border-line text-muted hover:text-ink cursor-pointer bg-surface"
+            <SwitchButton
+              theme={dark ? "dark" : "light"}
+              onThemeChange={(t) => setDark(t === "dark")}
+              size="default"
+              showLabel={false}
               aria-label="Toggle dark mode"
               title={dark ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              {dark ? <Sun size={15} /> : <Moon size={15} />}
-            </button>
+            />
 
             {/* Share URL */}
             <button
