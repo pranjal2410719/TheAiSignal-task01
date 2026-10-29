@@ -98,7 +98,11 @@ export function ModelComparison({
   const [copied, setCopied] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [cmdkOpen, setCmdkOpen] = useState(false);
-  const [dark, setDark] = useState<boolean>(false);
+  const [dark, setDark] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    const saved = localStorage.getItem("theme");
+    return saved ? saved === "dark" : true;
+  });
   const [playgroundTargetModel, setPlaygroundTargetModel] = useState<string | undefined>(undefined);
   const urlInitialized = useRef(false);
 
@@ -108,9 +112,14 @@ export function ModelComparison({
     setActiveView("playground");
   }, []);
 
-  // Sync dark class to document element
+  // Sync dark class to document element and persist preference
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
+    try {
+      localStorage.setItem("theme", dark ? "dark" : "light");
+    } catch {
+      // ignore
+    }
   }, [dark]);
 
   // Sync URL on initial mount and popstate
