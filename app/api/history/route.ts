@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getUsageDatabase } from "@/lib/usage-history-db";
+import { getUsageDatabase, pruneOldHistory } from "@/lib/usage-history-db";
 
 export const runtime = "nodejs";
 
@@ -15,13 +15,31 @@ export async function GET(request: Request) {
 
   try {
     const db = getUsageDatabase();
+    // Prune entries older than 4 hours automatically
+    pruneOldHistory(db, 4);
+
     const items = db.prepare(
       "SELECT id, model, prompt, response, tokens_used, created_at FROM usage_history WHERE session_id = ? ORDER BY created_at DESC, id DESC LIMIT 50",
     ).all(sessionId);
-    return NextResponse.json({ items });
+    return NextResponse.json({ items, retentionPolicy: "Auto-reset entries older than 4 hours" });
   } catch (error) {
     const message = error instanceof Error ? error.message : "The database could not be reached.";
-    const status = message.includes("Vercel") ? 503 : 500;
-    return NextResponse.json({ error: message }, { status });
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  const sessionId = new URL(request.url).searchParams.get("sessionId");
+  if (!validSessionId(sessionId)) {
+    return NextResponse.json({ error: "A valid browser session is required." }, { status: 400 });
+  }
+
+  try {
+    const db = getUsageDatabase();
+    const result = db.prepare("DELETE FROM usage_history WHERE session_id = ?").run(sessionId);
+    return NextResponse.json({ success: true, clearedCount: Number(result.changes) });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "The database could not be reached.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

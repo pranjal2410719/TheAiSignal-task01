@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, Clock3, RefreshCw } from "lucide-react";
+import { ArrowLeft, Clock3, RefreshCw, Trash2 } from "lucide-react";
 
 type HistoryItem = {
   id: string;
@@ -30,6 +30,7 @@ interface DashboardHistoryProps {
 export function DashboardHistory({ onBackToPlayground }: DashboardHistoryProps) {
   const [items, setItems] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [clearing, setClearing] = useState(false);
   const [error, setError] = useState("");
 
   const fetchHistory = useCallback(async () => {
@@ -51,6 +52,23 @@ export function DashboardHistory({ onBackToPlayground }: DashboardHistoryProps) 
       setLoading(false);
     }
   }, [fetchHistory]);
+
+  const clearHistory = async () => {
+    if (clearing || items.length === 0) return;
+    setClearing(true);
+    try {
+      const response = await fetch(`/api/history?sessionId=${encodeURIComponent(getSessionId())}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        setItems([]);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not clear history.");
+    } finally {
+      setClearing(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -75,10 +93,15 @@ export function DashboardHistory({ onBackToPlayground }: DashboardHistoryProps) 
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
         <div>
-          <p className="text-xs uppercase tracking-wider font-semibold text-muted">DATABASE LOGS</p>
-          <h2 className="serif text-2xl font-medium text-ink">Request & Usage History</h2>
+          <div className="flex items-center gap-2">
+            <p className="text-xs uppercase tracking-wider font-semibold text-muted">DATABASE LOGS</p>
+            <span className="chip text-[10px] bg-sunken text-accent font-mono">
+              Auto-reset: 4h TTL
+            </span>
+          </div>
+          <h2 className="serif text-2xl font-medium text-ink mt-0.5">Request & Usage History</h2>
           <p className="text-xs text-muted mt-1">
-            Persisted prompts, completions, and token metrics retrieved from the server SQLite store.
+            Persisted in SQLite. Records older than 4 hours are automatically purged to keep the store clean and organized.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -92,6 +115,16 @@ export function DashboardHistory({ onBackToPlayground }: DashboardHistoryProps) 
               <span>Back to Playground</span>
             </button>
           )}
+          <button
+            type="button"
+            onClick={clearHistory}
+            disabled={clearing || items.length === 0}
+            className="btn btn-line text-xs py-1.5 px-3 h-9 text-muted hover:text-red-500 disabled:opacity-40"
+            title="Clear all stored history for this browser session"
+          >
+            <Trash2 size={13} />
+            <span>Clear</span>
+          </button>
           <button
             type="button"
             onClick={() => {
@@ -111,18 +144,15 @@ export function DashboardHistory({ onBackToPlayground }: DashboardHistoryProps) 
       {/* Loading state */}
       {loading && (
         <div className="p-12 text-center text-sm text-muted rounded-2xl border border-line bg-surface">
-          Loading saved requests from database…
+          Loading saved requests from SQLite database…
         </div>
       )}
 
       {/* Error state */}
       {!loading && error && (
         <div className="p-4 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 text-xs text-amber-900 dark:text-amber-200">
-          <p className="font-semibold text-sm">History unavailable</p>
+          <p className="font-semibold text-sm">Database status notice</p>
           <p className="mt-1">{error}</p>
-          <p className="mt-1 text-[11px] opacity-80">
-            Local SQLite history is active on Node.js 22+. On ephemeral serverless deploys, local files are memory-bound.
-          </p>
         </div>
       )}
 
@@ -130,7 +160,7 @@ export function DashboardHistory({ onBackToPlayground }: DashboardHistoryProps) 
       {!loading && !error && items.length === 0 && (
         <div className="rounded-2xl border border-line bg-surface p-10 text-center">
           <Clock3 size={28} className="mx-auto text-muted mb-3" />
-          <h3 className="serif text-lg font-medium text-ink">No saved requests yet</h3>
+          <h3 className="serif text-lg font-medium text-ink">No saved requests in the last 4 hours</h3>
           <p className="mt-1 text-xs text-muted max-w-sm mx-auto">
             Run a prompt in the AI Playground to generate your first tracked request and token log.
           </p>
