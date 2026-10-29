@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Bot, Check, Clock3, LoaderCircle, MessageSquare, Send, Sparkles, Trash2 } from "lucide-react";
+import { models as catalogModels } from "@/lib/models";
 
 const MODEL_OPTIONS = [
   { id: "meta-llama/llama-3.3-70b-instruct:free", label: "Llama 3.3 70B · Free" },
@@ -30,14 +31,19 @@ export default function PlaygroundPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [catalogModelName, setCatalogModelName] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const selectedModel = useMemo(() => MODEL_OPTIONS.find((item) => item.id === model) ?? MODEL_OPTIONS[0], [model]);
 
   useEffect(() => {
-    const requested = new URLSearchParams(window.location.search).get("model");
+    const params = new URLSearchParams(window.location.search);
+    const requested = params.get("model");
     if (requested && MODEL_OPTIONS.some((item) => item.id === requested)) setModel(requested);
+    const catalogModel = params.get("catalogModel");
+    const catalogEntry = catalogModels.find((item) => item.id === catalogModel);
+    if (catalogEntry) setCatalogModelName(catalogEntry.name);
   }, []);
 
   useEffect(() => {
@@ -161,6 +167,7 @@ export default function PlaygroundPage() {
                 {MODEL_OPTIONS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
               </select>
               <p className="mt-3 break-all text-[11px] text-muted">{model}</p>
+              {catalogModelName && <p className="mt-3 rounded-lg border border-line bg-sunken p-3 text-xs leading-5 text-muted">You opened this playground from the illustrative catalog entry <strong className="text-ink">{catalogModelName}</strong>. Catalog entries are sample data and are not mapped to provider APIs; choose a supported live model above.</p>}
               <div className="mt-4 rounded-xl bg-sunken p-3 text-xs leading-5 text-muted">Availability and free-tier limits are controlled by OpenRouter and may change. Provider errors are shown in the conversation.</div>
             </section>
             <section className="rounded-2xl border border-line bg-surface p-4">
