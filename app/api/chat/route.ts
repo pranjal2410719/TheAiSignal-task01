@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getUsageDatabase } from "@/lib/usage-history-db";
 
 export const runtime = "nodejs";
 
@@ -97,32 +98,16 @@ export async function POST(request: Request) {
   const tokensUsed = Number.isFinite(payload?.usage?.total_tokens) ? payload!.usage!.total_tokens! : null;
   let historySaved = false;
 
-  // History is best-effort so a database outage does not discard a successful model response.
-  const databaseUrl = process.env.SUPABASE_URL?.replace(/\/$/, "");
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (databaseUrl && serviceKey && validSessionId(input.sessionId)) {
-    try {
-      const saveResponse = await fetch(`${databaseUrl}/rest/v1/usage_history`, {
-        method: "POST",
-        headers: {
-          apikey: serviceKey,
-          Authorization: `Bearer ${serviceKey}`,
-          "Content-Type": "application/json",
-          Prefer: "return=minimal",
-        },
-        body: JSON.stringify({
-          session_id: input.sessionId,
-          model: input.model,
-          prompt,
-          response: responseText,
-          tokens_used: tokensUsed,
-        }),
-        signal: AbortSignal.timeout(8000),
-      });
-      historySaved = saveResponse.ok;
-    } catch {
-      historySaved = false;
-    }
+  // History is best-effort: a storage issue must not discard a successful model response.
+  let historySaved = false;
+  try {
+    const db = getUsageDatabase();
+    const result = db.prepare(
+      "INSERT INTO usage_history (session_id, model, prompt, response, tokens_used) VALUES (?, ?, ?, ?, ?)",
+    ).run(input.sessionId as string, input.model, prompt, responseText, tokensUsed);
+    historySaved = Number(result.changes) === 1;
+  } catch (error) {
+    console.error("Usage history save failed:", error instanceof Error ? error.message : "Unknown database error");
   }
 
   return NextResponse.json({ response: responseText, model: input.model, tokensUsed, historySaved });
