@@ -99,8 +99,6 @@ export async function POST(request: Request) {
 
   const prompt = [...messages].reverse().find((message) => message.role === "user")?.content || "";
   const tokensUsed = Number.isFinite(payload?.usage?.total_tokens) ? payload!.usage!.total_tokens! : null;
-  let historySaved = false;
-
   // History is best-effort: a storage issue must not discard a successful model response.
   let historySaved = false;
   try {
