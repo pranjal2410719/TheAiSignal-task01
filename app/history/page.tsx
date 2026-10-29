@@ -21,20 +21,42 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const fetchHistory = useCallback(async () => {
+    const response = await fetch(`/api/history?sessionId=${encodeURIComponent(getSessionId())}`, { cache: "no-store" });
+    const data = await response.json() as { items?: HistoryItem[]; error?: string };
+    if (!response.ok) throw new Error(data.error || "Could not load history.");
+    return data.items || [];
+  }, []);
+
   const loadHistory = useCallback(async () => {
     try {
-      const response = await fetch(`/api/history?sessionId=${encodeURIComponent(getSessionId())}`, { cache: "no-store" });
-      const data = await response.json() as { items?: HistoryItem[]; error?: string };
-      if (!response.ok) throw new Error(data.error || "Could not load history.");
-      setItems(data.items || []);
+      setItems(await fetchHistory());
+      setError("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not load history.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fetchHistory]);
 
-  useEffect(() => { void loadHistory(); }, [loadHistory]);
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchHistory()
+      .then((history) => {
+        if (!cancelled) setItems(history);
+      })
+      .catch((cause: unknown) => {
+        if (!cancelled) setError(cause instanceof Error ? cause.message : "Could not load history.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchHistory]);
 
   return (
     <main className="min-h-screen bg-canvas text-ink">
