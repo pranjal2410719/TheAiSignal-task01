@@ -12,9 +12,11 @@ import {
   LayoutDashboard,
   LayoutGrid,
   Menu,
+  Moon,
   MoveHorizontal,
   Search,
   Sparkles,
+  Sun,
   Table as TableIcon,
   X,
   Zap,
@@ -39,16 +41,29 @@ const tokens = (value: number) =>
     ? `${(value / 1_000_000).toLocaleString("en-US", { maximumFractionDigits: 2 })}M`
     : `${Math.round(value / 1_000)}K`;
 
+const labColors: Record<string, string> = {
+  OpenAI: "#10a37f",
+  Anthropic: "#d97757",
+  Google: "#4285f4",
+  DeepSeek: "#4d6bfe",
+  Meta: "#0866ff",
+};
+
+const MOD_ICON: Record<string, string> = {
+  Text: "T",
+  Image: "◐",
+  Audio: "♪",
+  Video: "▶",
+  PDF: "▤",
+};
+
 type DashboardView = "overview" | "compare" | "estimator" | "details" | "about";
 
-// Toggle chips definition per design.md §6.5
 const TOGGLE_CHIPS = [
   { id: "reasoning", label: "Reasoning" },
-  { id: "tools", label: "Tool calling" },
-  { id: "json", label: "Structured output" },
+  { id: "tools", label: "Tools" },
   { id: "vision", label: "Vision" },
   { id: "open-weights", label: "Open weights" },
-  { id: "1m-context", label: "1M+ context" },
   { id: "free", label: "Free" },
 ];
 
@@ -68,7 +83,13 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
   const [copied, setCopied] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [cmdkOpen, setCmdkOpen] = useState(false);
+  const [dark, setDark] = useState<boolean>(false);
   const urlInitialized = useRef(false);
+
+  // Sync dark class to document element
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", dark);
+  }, [dark]);
 
   // Sync URL on initial mount and popstate
   useEffect(() => {
@@ -96,7 +117,7 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
   // Keyboard shortcut for Command Palette (⌘K / Ctrl+K)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setCmdkOpen((open) => !open);
       } else if (e.key === "Escape") {
@@ -125,7 +146,6 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
     });
   }, [selectedIds]);
 
-  // Unique AI Labs for filter dropdown
   const labOptions = useMemo(() => {
     const labs = Array.from(new Set(models.map((m) => m.lab)));
     return labs.map((lab) => ({
@@ -143,18 +163,12 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
   const filteredModels = useMemo(() => {
     const q = query.trim().toLowerCase();
     return models.filter((model) => {
-      // Lab filter
       if (selectedLab !== "all" && model.lab !== selectedLab) return false;
-
-      // Text query
       if (q) {
         const haystack = `${model.name} ${model.lab} ${model.providers.join(" ")} ${model.id}`.toLowerCase();
         if (!haystack.includes(q)) return false;
       }
-
-      // Capability toggle chips
       if (activeChips.includes("open-weights") && model.weights !== "Open") return false;
-      if (activeChips.includes("1m-context") && model.contextWindow < 1_000_000) return false;
       if (activeChips.includes("vision") && !model.inputModalities.includes("Image")) return false;
       if (activeChips.includes("free") && (model.inputPricePerMillion > 0 || model.outputPricePerMillion > 0)) return false;
 
@@ -190,7 +204,6 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
     }
   };
 
-  // Cheapest and lowest price evaluations
   const lowestInputModel = useMemo(() => {
     if (selectedModels.length === 0) return null;
     return [...selectedModels].sort((a, b) => a.inputPricePerMillion - b.inputPricePerMillion)[0];
@@ -220,8 +233,8 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
       label: "Context window",
       value: (model) => (
         <>
-          <strong className="text-white text-sm block font-mono">{tokens(model.contextWindow)}</strong>
-          <span className="muted text-[11px]">tokens</span>
+          <strong className="text-ink text-sm block mono">{tokens(model.contextWindow)}</strong>
+          <span className="text-muted text-[11px]">tokens</span>
         </>
       ),
     },
@@ -229,18 +242,18 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
       label: "Maximum output",
       value: (model) => (
         <>
-          <strong className="text-white text-sm block font-mono">{tokens(model.maxOutput)}</strong>
-          <span className="muted text-[11px]">tokens</span>
+          <strong className="text-ink text-sm block mono">{tokens(model.maxOutput)}</strong>
+          <span className="text-muted text-[11px]">tokens</span>
         </>
       ),
     },
     {
       label: "Input modalities",
       value: (model) => (
-        <div className="flex flex-wrap gap-1 max-w-[200px]">
+        <div className="flex items-center gap-1">
           {model.inputModalities.map((item) => (
-            <span className="pill text-[10px]" key={item}>
-              {item}
+            <span key={item} title={`${item} in`} className="mod-glyph">
+              {MOD_ICON[item] ?? item[0]}
             </span>
           ))}
         </div>
@@ -249,10 +262,10 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
     {
       label: "Output modalities",
       value: (model) => (
-        <div className="flex flex-wrap gap-1 max-w-[200px]">
+        <div className="flex items-center gap-1">
           {model.outputModalities.map((item) => (
-            <span className="pill text-[10px]" key={item}>
-              {item}
+            <span key={item} title={`${item} out`} className="mod-glyph border border-line">
+              {MOD_ICON[item] ?? item[0]}
             </span>
           ))}
         </div>
@@ -262,8 +275,8 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
       label: "Input price / 1M",
       value: (model) => (
         <div className="flex items-center gap-1.5 flex-wrap">
-          <strong className="text-white text-sm font-mono">{money(model.inputPricePerMillion)}</strong>
-          {model.inputPricePerMillion === lowestInputRate && <span className="badge badge-emerald">Lowest</span>}
+          <strong className="text-ink text-sm mono">{money(model.inputPricePerMillion)}</strong>
+          {model.inputPricePerMillion === lowestInputRate && <span className="badge-lowest">Lowest</span>}
         </div>
       ),
     },
@@ -271,22 +284,22 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
       label: "Output price / 1M",
       value: (model) => (
         <div className="flex items-center gap-1.5 flex-wrap">
-          <strong className="text-white text-sm font-mono">{money(model.outputPricePerMillion)}</strong>
-          {model.outputPricePerMillion === lowestOutputRate && <span className="badge badge-emerald">Lowest</span>}
+          <strong className="text-ink text-sm mono">{money(model.outputPricePerMillion)}</strong>
+          {model.outputPricePerMillion === lowestOutputRate && <span className="badge-lowest">Lowest</span>}
         </div>
       ),
     },
     {
       label: "Intelligence benchmark",
       value: (model) => (
-        <div className="min-w-[120px] max-w-[180px]">
+        <div className="min-w-[130px] max-w-[190px]">
           <div className="flex items-center justify-between text-xs mb-1">
-            <strong className="text-white font-mono">{model.intelligenceScore.toFixed(1)}</strong>
-            <span className="text-slate-500 text-[10px]">/ 60</span>
+            <strong className="text-ink mono">{model.intelligenceScore.toFixed(1)}</strong>
+            <span className="text-muted text-[10px]">/ 60</span>
           </div>
-          <div className="benchmark-bar">
+          <div className="score-bar-track">
             <div
-              className="benchmark-progress"
+              className="score-bar-fill"
               style={{ width: `${Math.min(100, (model.intelligenceScore / 60) * 100)}%` }}
             />
           </div>
@@ -296,14 +309,14 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
     {
       label: "Coding benchmark",
       value: (model) => (
-        <div className="min-w-[120px] max-w-[180px]">
+        <div className="min-w-[130px] max-w-[190px]">
           <div className="flex items-center justify-between text-xs mb-1">
-            <strong className="text-white font-mono">{model.codingScore.toFixed(1)}</strong>
-            <span className="text-slate-500 text-[10px]">/ 60</span>
+            <strong className="text-ink mono">{model.codingScore.toFixed(1)}</strong>
+            <span className="text-muted text-[10px]">/ 60</span>
           </div>
-          <div className="benchmark-bar">
+          <div className="score-bar-track">
             <div
-              className="benchmark-progress benchmark-progress-sky"
+              className="score-bar-fill"
               style={{ width: `${Math.min(100, (model.codingScore / 60) * 100)}%` }}
             />
           </div>
@@ -313,14 +326,14 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
     {
       label: "Agentic benchmark",
       value: (model) => (
-        <div className="min-w-[120px] max-w-[180px]">
+        <div className="min-w-[130px] max-w-[190px]">
           <div className="flex items-center justify-between text-xs mb-1">
-            <strong className="text-white font-mono">{model.agenticScore.toFixed(1)}</strong>
-            <span className="text-slate-500 text-[10px]">/ 60</span>
+            <strong className="text-ink mono">{model.agenticScore.toFixed(1)}</strong>
+            <span className="text-muted text-[10px]">/ 60</span>
           </div>
-          <div className="benchmark-bar">
+          <div className="score-bar-track">
             <div
-              className="benchmark-progress benchmark-progress-purple"
+              className="score-bar-fill"
               style={{ width: `${Math.min(100, (model.agenticScore / 60) * 100)}%` }}
             />
           </div>
@@ -331,8 +344,8 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
       label: "Open weights",
       value: (model) => (
         <span
-          className={`pill text-[11px] font-medium ${
-            model.weights === "Open" ? "text-emerald-300 border-emerald-500/30 bg-emerald-950/30" : "text-slate-300"
+          className={`chip ${
+            model.weights === "Open" ? "bg-[var(--tile-olive)]/60 text-[#2d3a12]" : ""
           }`}
         >
           {model.weights}
@@ -344,7 +357,7 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
       value: (model) => (
         <div className="flex flex-wrap gap-1 max-w-[220px]">
           {model.providers.map((provider) => (
-            <span className="pill text-[10px]" key={provider}>
+            <span className="chip" key={provider}>
               {provider}
             </span>
           ))}
@@ -353,7 +366,7 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
     },
     {
       label: "Release date",
-      value: (model) => <span className="text-xs text-slate-300 whitespace-nowrap">{model.releaseDate}</span>,
+      value: (model) => <span className="text-xs text-muted whitespace-nowrap">{model.releaseDate}</span>,
     },
   ];
 
@@ -384,20 +397,18 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
 
       {/* DASHBOARD SIDEBAR NAVIGATION */}
       <aside className={`dashboard-sidebar ${sidebarOpen ? "dashboard-sidebar-open" : ""}`}>
-        {/* Brand header */}
         <div className="sidebar-header">
           <BrandLogo />
           <button
             type="button"
-            className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white"
+            className="lg:hidden p-1.5 rounded-lg text-muted hover:text-ink cursor-pointer bg-transparent border-none"
             onClick={() => setSidebarOpen(false)}
-            aria-label="Close sidebar navigation"
+            aria-label="Close sidebar"
           >
             <X size={18} />
           </button>
         </div>
 
-        {/* Sidebar Nav Links */}
         <div className="sidebar-nav-section">
           <span className="sidebar-section-title">Navigation</span>
           <nav className="space-y-1">
@@ -443,7 +454,7 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
               className={`sidebar-nav-item ${activeView === "details" ? "sidebar-nav-item-active" : ""}`}
             >
               <BrainCircuit size={16} className="shrink-0" />
-              <span>Model Deep Dive</span>
+              <span>Model Profiles</span>
             </button>
             <button
               type="button"
@@ -459,50 +470,58 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
           </nav>
         </div>
 
-        {/* Quick Selection in Sidebar */}
+        {/* Quick Selection Drawer in Sidebar */}
         <div className="sidebar-selection-section">
           <div className="flex items-center justify-between mb-2">
-            <span className="sidebar-section-title">Active Models</span>
-            <span className="text-[11px] font-mono text-emerald-400 font-semibold">
+            <span className="sidebar-section-title">Selected Models</span>
+            <span className="mono text-xs font-semibold text-ink">
               {selectedModels.length}/{MAX_SELECTED_MODELS}
             </span>
           </div>
 
-          <div className="space-y-1.5 max-h-[200px] overflow-y-auto pr-1">
+          <div className="space-y-1.5 max-h-[190px] overflow-y-auto pr-1">
             {selectedModels.map((model) => (
               <div
                 key={model.id}
-                className="flex items-center justify-between gap-1.5 p-2 rounded-lg bg-[#141a1f] border border-[#232c33] text-xs text-white"
+                className="flex items-center justify-between gap-1.5 p-2 rounded-lg bg-sunken border border-line text-xs text-ink"
               >
-                <div className="min-w-0">
-                  <strong className="block truncate text-slate-200">{model.name}</strong>
-                  <span className="text-[10px] text-slate-400">{model.lab}</span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    className="grid h-5 w-5 shrink-0 place-items-center rounded text-[10px] font-semibold text-white"
+                    style={{ background: labColors[model.lab] || "#6b6a64" }}
+                  >
+                    {model.lab[0]}
+                  </span>
+                  <div className="min-w-0 truncate">
+                    <strong className="block truncate">{model.name}</strong>
+                    <span className="text-[10px] text-muted">{model.lab}</span>
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => updateSelection(model.id)}
                   aria-label={`Remove ${model.name}`}
-                  className="p-1 text-slate-400 hover:text-red-400 rounded transition-colors"
+                  className="p-1 text-muted hover:text-red-500 rounded cursor-pointer bg-transparent border-none"
                 >
                   <X size={12} />
                 </button>
               </div>
             ))}
             {selectedModels.length === 0 && (
-              <p className="text-xs text-slate-500 italic p-2">No models selected.</p>
+              <p className="text-xs text-muted italic p-2">No models selected.</p>
             )}
           </div>
 
           {availableModels.length > 0 && selectedIds.length < MAX_SELECTED_MODELS && (
-            <div className="mt-3 pt-3 border-t border-[#232c33]">
-              <span className="text-[11px] text-slate-400 block mb-1.5">Add candidate:</span>
+            <div className="mt-3 pt-3 border-t border-line">
+              <span className="text-[11px] text-muted block mb-1.5">Add candidate:</span>
               <div className="flex flex-wrap gap-1">
                 {availableModels.slice(0, 3).map((m) => (
                   <button
                     key={m.id}
                     type="button"
                     onClick={() => updateSelection(m.id)}
-                    className="text-[10px] py-1 px-2 rounded bg-[#141a1f] border border-[#232c33] text-slate-300 hover:text-white hover:border-emerald-500/40"
+                    className="text-[10px] py-1 px-2 rounded bg-surface border border-line text-ink hover:bg-sunken cursor-pointer"
                   >
                     + {m.name}
                   </button>
@@ -512,68 +531,77 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
           )}
         </div>
 
-        {/* Sidebar Footer */}
         <div className="sidebar-footer">
-          <div className="flex items-center gap-2 text-[11px] text-slate-400">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-            <span>OneAtlas Dark Theme</span>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-muted">Theme Palette</span>
+            <button
+              type="button"
+              onClick={() => setDark(!dark)}
+              className="grid h-6 w-6 place-items-center rounded border border-line text-muted hover:text-ink cursor-pointer bg-transparent"
+              aria-label="Toggle theme"
+            >
+              {dark ? <Sun size={12} /> : <Moon size={12} />}
+            </button>
           </div>
-          <span className="text-[10px] text-slate-500 block mt-1">
-            Next.js 16 App Router · React 19
-          </span>
         </div>
       </aside>
 
       {/* DASHBOARD MAIN CONTENT */}
       <div className="dashboard-main">
-        {/* TOPBAR (Height 56px sticky, matching design.md §6.1) */}
+        {/* TOPBAR */}
         <header className="dashboard-topbar">
           <div className="flex items-center gap-3">
             <button
               type="button"
-              className="lg:hidden p-2 rounded-lg bg-[#141a1f] border border-[#232c33] text-slate-300 hover:text-white"
+              className="lg:hidden p-2 rounded-lg bg-surface border border-line text-ink cursor-pointer"
               onClick={() => setSidebarOpen(true)}
-              aria-label="Open sidebar menu"
+              aria-label="Open navigation menu"
             >
-              <Menu size={18} />
+              <Menu size={16} />
             </button>
-            <div className="flex items-center gap-2 sm:gap-4">
-              <h1 className="text-sm sm:text-base font-bold text-white tracking-tight flex items-center gap-2 m-0">
-                <span>OneAtlas</span>
-                <span className="text-slate-500 font-normal text-xs hidden sm:inline">/</span>
-                <span className="text-slate-300 text-xs sm:text-sm font-medium hidden sm:inline">
-                  {activeView === "overview" && "Models Overview"}
-                  {activeView === "compare" && "Comparison Matrix"}
-                  {activeView === "estimator" && "Cost Estimator"}
-                  {activeView === "details" && "Model Deep Dive"}
-                  {activeView === "about" && "Methodology"}
-                </span>
-              </h1>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-ink">
+                {activeView === "overview" && "Models Overview"}
+                {activeView === "compare" && "Comparison Matrix"}
+                {activeView === "estimator" && "Cost Estimator"}
+                {activeView === "details" && "Model Profiles"}
+                {activeView === "about" && "Methodology"}
+              </span>
             </div>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Global Search Trigger (⌘K) per design.md §6.1 */}
+            {/* ⌘K Search Trigger */}
             <button
               type="button"
               onClick={() => setCmdkOpen(true)}
-              className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#141a1f] border border-[#232c33] text-xs text-slate-400 hover:text-white hover:border-[#2f3a42] transition-colors"
-              aria-label="Search models (Press ⌘K)"
+              className="field cursor-pointer text-left text-[0.82rem] text-muted hidden sm:flex w-64"
             >
-              <Search size={14} className="text-slate-500" />
-              <span>Search models, labs, providers...</span>
-              <kbd className="text-[10px] bg-[#1a2127] border border-[#232c33] px-1.5 py-0.5 rounded text-slate-400 font-mono">⌘K</kbd>
+              <Search size={14} className="text-muted" />
+              <span className="min-w-0 flex-1 truncate">Search models, labs...</span>
+              <span className="kbd">⌘K</span>
             </button>
 
-            {/* Share URL Button */}
+            {/* Dark Mode Switcher */}
+            <button
+              type="button"
+              onClick={() => setDark(!dark)}
+              className="grid h-9 w-9 place-items-center rounded-lg border border-line text-muted hover:text-ink cursor-pointer bg-surface"
+              aria-label="Toggle dark mode"
+              title={dark ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {dark ? <Sun size={15} /> : <Moon size={15} />}
+            </button>
+
+            {/* Share URL */}
             <button
               type="button"
               onClick={shareLink}
-              className="btn btn-share text-xs py-1.5 px-3"
-              aria-label="Share comparison workspace URL"
+              className="btn btn-ink text-xs py-1.5 px-3 h-9"
+              aria-label="Share comparison URL"
             >
-              {copied ? <Check size={14} className="text-emerald-300" /> : <Copy size={14} />}
-              <span>{copied ? "Link Copied!" : "Share URL"}</span>
+              {copied ? <Check size={13} /> : <Copy size={13} />}
+              <span>{copied ? "Copied!" : "Share URL"}</span>
             </button>
           </div>
         </header>
@@ -584,70 +612,70 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
           <div className="dashboard-kpi-grid">
             {/* KPI 1: Active Models */}
             <div className="dashboard-kpi-card">
-              <div className="flex items-center justify-between text-xs text-slate-400">
-                <span>Selected Set</span>
-                <span className="pill text-[10px] text-emerald-400 border-emerald-500/20">
+              <div className="flex items-center justify-between text-xs text-muted">
+                <span>Selected Models</span>
+                <span className="chip">
                   {hasMinModels ? "Valid Set" : "Need >= 2"}
                 </span>
               </div>
               <div className="my-2">
-                <span className="text-2xl sm:text-3xl font-extrabold font-mono text-white">
+                <span className="serif text-3xl font-medium text-ink mono">
                   {selectedModels.length}
                 </span>
-                <span className="text-xs text-slate-400 font-mono"> / {MAX_SELECTED_MODELS} models</span>
+                <span className="text-xs text-muted mono"> / {MAX_SELECTED_MODELS}</span>
               </div>
-              <span className="text-[11px] text-slate-500">
+              <span className="text-[11px] text-muted truncate">
                 {selectedModels.map((m) => m.name).join(", ") || "None"}
               </span>
             </div>
 
             {/* KPI 2: Lowest Input Rate */}
             <div className="dashboard-kpi-card">
-              <div className="flex items-center justify-between text-xs text-slate-400">
+              <div className="flex items-center justify-between text-xs text-muted">
                 <span>Lowest Input Rate</span>
-                <Zap size={13} className="text-emerald-400" />
+                <Zap size={13} className="text-accent" />
               </div>
               <div className="my-2">
-                <span className="text-2xl sm:text-3xl font-extrabold font-mono text-white">
+                <span className="serif text-3xl font-medium text-ink mono">
                   {lowestInputModel ? money(lowestInputModel.inputPricePerMillion) : "$0.00"}
                 </span>
-                <span className="text-xs text-slate-400"> / 1M</span>
+                <span className="text-xs text-muted"> / 1M</span>
               </div>
-              <span className="text-[11px] text-emerald-400 font-medium truncate">
+              <span className="text-[11px] text-muted font-medium truncate">
                 {lowestInputModel ? `${lowestInputModel.name} (${lowestInputModel.lab})` : "—"}
               </span>
             </div>
 
             {/* KPI 3: Lowest Output Rate */}
             <div className="dashboard-kpi-card">
-              <div className="flex items-center justify-between text-xs text-slate-400">
+              <div className="flex items-center justify-between text-xs text-muted">
                 <span>Lowest Output Rate</span>
-                <Zap size={13} className="text-sky-400" />
+                <Zap size={13} className="text-accent" />
               </div>
               <div className="my-2">
-                <span className="text-2xl sm:text-3xl font-extrabold font-mono text-white">
+                <span className="serif text-3xl font-medium text-ink mono">
                   {lowestOutputModel ? money(lowestOutputModel.outputPricePerMillion) : "$0.00"}
                 </span>
-                <span className="text-xs text-slate-400"> / 1M</span>
+                <span className="text-xs text-muted"> / 1M</span>
               </div>
-              <span className="text-[11px] text-sky-400 font-medium truncate">
+              <span className="text-[11px] text-muted font-medium truncate">
                 {lowestOutputModel ? `${lowestOutputModel.name} (${lowestOutputModel.lab})` : "—"}
               </span>
             </div>
 
             {/* KPI 4: Best Value Bill */}
             <div className="dashboard-kpi-card">
-              <div className="flex items-center justify-between text-xs text-slate-400">
+              <div className="flex items-center justify-between text-xs text-muted">
                 <span>Cheapest Monthly Bill</span>
-                <Sparkles size={13} className="text-emerald-400" />
+                <Sparkles size={13} className="text-accent" />
               </div>
               <div className="my-2">
-                <span className="text-2xl sm:text-3xl font-extrabold font-mono text-emerald-400">
+                <span className="serif text-3xl font-medium text-ink mono">
                   {cheapestBill ? money(cheapestBill.cost) : "$0.00"}
                 </span>
-                <span className="text-xs text-slate-400"> / mo</span>
+                <span className="text-xs text-muted"> / mo</span>
               </div>
-              <span className="text-[11px] text-slate-300 truncate">
+              <span className="text-[11px] text-muted truncate">
                 {cheapestBill && secondCheapestBill
                   ? `Saves ${money(secondCheapestBill.cost - cheapestBill.cost)} vs ${secondCheapestBill.model.name}`
                   : cheapestBill
@@ -657,84 +685,87 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
             </div>
           </div>
 
-          {/* 6.5 Filter Bar & Toggle Chips per design.md */}
-          <div className="panel p-4 sm:p-5 mb-6">
+          {/* Filter Bar & Model Selector */}
+          <div className="p-5 rounded-2xl border border-line bg-surface mb-6">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
               <div>
-                <p className="kicker">FILTER & SELECT</p>
-                <h2 className="text-base font-bold text-white">Model Catalog & Selection</h2>
+                <p className="text-xs uppercase tracking-wider font-semibold text-muted">FILTER & SELECT</p>
+                <h2 className="serif text-xl font-medium text-ink">Model Catalog & Selection</h2>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-xs text-slate-400 font-mono">
+                <span className="text-xs text-muted mono">
                   {filteredModels.length} models match
                 </span>
-                {/* Segmented View Toggle (Table | Cards) */}
-                <div className="segmented-control" role="group" aria-label="View layout switch">
+                {/* Segmented Table | Cards switch */}
+                <div className="flex items-center border border-line rounded-lg p-0.5 bg-sunken">
                   <button
                     type="button"
                     onClick={() => setViewMode("table")}
-                    className={`segmented-btn ${viewMode === "table" ? "segmented-btn-active" : ""}`}
-                    aria-label="Table view"
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium cursor-pointer border-none ${
+                      viewMode === "table" ? "bg-surface text-ink shadow-xs" : "bg-transparent text-muted"
+                    }`}
                   >
-                    <TableIcon size={13} />
+                    <TableIcon size={12} />
                     <span>Table</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setViewMode("cards")}
-                    className={`segmented-btn ${viewMode === "cards" ? "segmented-btn-active" : ""}`}
-                    aria-label="Cards view"
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium cursor-pointer border-none ${
+                      viewMode === "cards" ? "bg-surface text-ink shadow-xs" : "bg-transparent text-muted"
+                    }`}
                   >
-                    <LayoutGrid size={13} />
+                    <LayoutGrid size={12} />
                     <span>Cards</span>
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* Filter Controls Row */}
+            {/* Search and Filters */}
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
-              {/* Search text field */}
-              <div className="sm:col-span-8 relative flex items-center">
-                <Search size={15} className="text-slate-500 absolute left-3 pointer-events-none" aria-hidden="true" />
-                <input
-                  id="model-search"
-                  className="field search-field pl-9 pr-14 w-full text-xs sm:text-sm bg-[#1a2127] border-[#2f3a42]"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Filter by model, lab, or provider..."
-                />
-                {query && (
-                  <button
-                    type="button"
-                    onClick={() => setQuery("")}
-                    className="absolute right-3 text-xs text-slate-400 hover:text-white px-1.5 py-0.5 rounded bg-[#222b32]"
-                  >
-                    Clear
-                  </button>
-                )}
+              <div className="sm:col-span-8">
+                <label className="field w-full">
+                  <Search size={14} className="text-muted" />
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search by model, lab, or provider..."
+                    className="flex-1 bg-transparent text-xs text-ink outline-none placeholder:text-muted"
+                  />
+                  {query && (
+                    <button
+                      type="button"
+                      onClick={() => setQuery("")}
+                      className="text-xs text-muted hover:text-ink cursor-pointer bg-transparent border-none"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </label>
               </div>
 
-              {/* Lab select combobox */}
               <div className="sm:col-span-4">
-                <select
-                  value={selectedLab}
-                  onChange={(e) => setSelectedLab(e.target.value)}
-                  className="w-full h-10 px-3 bg-[#1a2127] border border-[#2f3a42] rounded-lg text-xs text-slate-200 focus:outline-none focus:border-emerald-400"
-                  aria-label="Filter by Lab"
-                >
-                  <option value="all">All Labs ({models.length})</option>
-                  {labOptions.map((opt) => (
-                    <option key={opt.name} value={opt.name}>
-                      {opt.name} ({opt.count})
-                    </option>
-                  ))}
-                </select>
+                <label className="field cursor-pointer pr-1 text-xs">
+                  <span className="text-muted">Lab:</span>
+                  <select
+                    value={selectedLab}
+                    onChange={(e) => setSelectedLab(e.target.value)}
+                    className="cursor-pointer bg-transparent font-medium outline-none text-ink flex-1"
+                  >
+                    <option value="all">All Labs ({models.length})</option>
+                    {labOptions.map((opt) => (
+                      <option key={opt.name} value={opt.name}>
+                        {opt.name} ({opt.count})
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
             </div>
 
-            {/* 6.5 Toggle Chips per design.md */}
-            <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-[#232c33]">
+            {/* Toggle Chips */}
+            <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-line">
               {TOGGLE_CHIPS.map((chip) => {
                 const isActive = activeChips.includes(chip.id);
                 return (
@@ -742,10 +773,13 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
                     key={chip.id}
                     type="button"
                     onClick={() => toggleChip(chip.id)}
-                    className={`filter-chip ${isActive ? "filter-chip-active" : ""}`}
+                    className={`h-8 rounded-[8px] border px-2.5 text-xs font-medium cursor-pointer transition-colors ${
+                      isActive
+                        ? "border-ink bg-ink text-on-ink"
+                        : "border-line bg-surface text-ink hover:bg-sunken"
+                    }`}
                   >
-                    {isActive && <Check size={12} className="text-emerald-400" />}
-                    <span>{chip.label}</span>
+                    {chip.label}
                   </button>
                 );
               })}
@@ -753,72 +787,78 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
                 <button
                   type="button"
                   onClick={() => setActiveChips([])}
-                  className="text-xs text-slate-500 hover:text-slate-300 ml-1 py-1"
+                  className="text-xs text-muted hover:text-ink ml-1 cursor-pointer bg-transparent border-none"
                 >
-                  Reset filters
+                  Reset
                 </button>
               )}
             </div>
 
             {/* Active Model Chips */}
-            <div className="mt-3 pt-3 border-t border-[#232c33]">
+            <div className="mt-3 pt-3 border-t border-line">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-slate-300">
+                <span className="text-xs font-semibold text-muted">
                   Active Comparison ({selectedModels.length}/{MAX_SELECTED_MODELS}):
                 </span>
                 {selectedModels.length > 0 && (
                   <button
                     type="button"
                     onClick={() => setSelectedIds([])}
-                    className="text-[11px] text-slate-500 hover:text-red-400 transition-colors"
+                    className="text-[11px] text-muted hover:text-red-500 cursor-pointer bg-transparent border-none"
                   >
                     Clear selection
                   </button>
                 )}
               </div>
 
-              <div className="selection-row">
+              <div className="flex flex-wrap gap-2">
                 {selectedModels.map((model) => (
-                  <span className="chip" key={model.id}>
-                    <span className="chip-indicator" />
-                    <strong className="text-xs sm:text-sm">{model.name}</strong>
-                    <span className="text-slate-400 text-[11px]">({model.lab})</span>
+                  <span
+                    key={model.id}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-sunken text-xs text-ink"
+                  >
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ background: labColors[model.lab] || "#6b6a64" }}
+                    />
+                    <strong>{model.name}</strong>
+                    <span className="text-muted text-[11px]">({model.lab})</span>
                     <button
                       type="button"
                       aria-label={`Remove ${model.name}`}
                       onClick={() => updateSelection(model.id)}
-                      className="chip-remove-btn"
+                      className="text-muted hover:text-red-500 ml-1 cursor-pointer bg-transparent border-none"
                     >
-                      <X size={13} />
+                      <X size={12} />
                     </button>
                   </span>
                 ))}
                 {selectedModels.length === 0 && (
-                  <span className="text-xs text-slate-400 italic py-1">
-                    No models selected. Choose from the candidates below.
+                  <span className="text-xs text-muted italic py-1">
+                    No models selected. Choose from candidates below.
                   </span>
                 )}
               </div>
             </div>
 
-            {/* Quick Candidate Buttons */}
+            {/* Available candidates */}
             {availableModels.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-[#232c33]">
-                <span className="text-xs font-semibold text-slate-400 block mb-2">
+              <div className="mt-3 pt-3 border-t border-line">
+                <span className="text-xs font-semibold text-muted block mb-2">
                   + Add model to comparison
                 </span>
-                <div className="model-options">
+                <div className="flex flex-wrap gap-1.5">
                   {availableModels.map((model) => (
                     <button
-                      className="model-option"
-                      type="button"
                       key={model.id}
+                      type="button"
                       disabled={selectedIds.length >= MAX_SELECTED_MODELS}
                       onClick={() => updateSelection(model.id)}
+                      className="text-xs py-1.5 px-3 rounded-lg border border-line bg-surface hover:bg-sunken text-ink disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
                     >
-                      <span className="text-emerald-400 font-bold">+</span>
+                      <span className="font-bold mr-1">+</span>
                       <span>{model.name}</span>
-                      <span className="muted text-[11px]">· {model.lab}</span>
+                      <span className="text-muted text-[11px] ml-1">· {model.lab}</span>
                     </button>
                   ))}
                 </div>
@@ -827,74 +867,73 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
           </div>
 
           {!hasMinModels && (
-            <div className="notice mb-6">
+            <div className="p-5 rounded-2xl border border-line bg-sunken text-xs text-ink mb-6">
               <strong>Minimum selection required:</strong> Select at least two models to view the technical comparison matrix and cost estimator. You can select up to four models.
             </div>
           )}
 
-          {/* DYNAMIC VIEW ROUTING BASED ON VIEW OR SEGMENTED MODE */}
+          {/* DYNAMIC VIEW ROUTING */}
           {hasMinModels && (
             <div className="space-y-8">
-              {/* OVERVIEW / CARDS MODE */}
+              {/* CARDS MODE */}
               {(activeView === "overview" || viewMode === "cards") && viewMode === "cards" && (
                 <section className="space-y-4">
-                  <div className="section-heading mb-2">
-                    <div>
-                      <p className="kicker">CARD VIEW</p>
-                      <h2 className="text-xl font-bold text-white">Model Cards Grid</h2>
-                    </div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h2 className="serif text-xl font-medium text-ink">Model Cards View</h2>
+                    <span className="text-xs text-muted mono">{selectedModels.length} models</span>
                   </div>
 
-                  {/* 6.7 Cards View per design.md */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {selectedModels.map((model) => (
                       <div
                         key={model.id}
-                        className="p-4 rounded-xl border border-[#232c33] bg-[#141a1f] flex flex-col justify-between"
+                        className="p-5 rounded-2xl border border-line bg-surface flex flex-col justify-between"
                       >
                         <div>
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-mono text-emerald-400">{model.lab}</span>
-                            <span className="pill text-[10px]">{model.weights}</span>
+                            <span className="text-xs font-mono text-muted">{model.lab}</span>
+                            <span className={`chip ${model.weights === "Open" ? "bg-[var(--tile-olive)]/60 text-[#2d3a12]" : ""}`}>
+                              {model.weights}
+                            </span>
                           </div>
-                          <h3 className="text-base font-bold text-white mb-1">{model.name}</h3>
-                          <p className="text-[11px] text-slate-500 font-mono mb-4">Released {model.releaseDate}</p>
+                          <h3 className="serif text-lg font-medium text-ink mb-1">{model.name}</h3>
+                          <p className="text-[11px] text-muted mono mb-4">Released {model.releaseDate}</p>
 
-                          {/* 2x3 Stat grid per design.md §6.7 */}
-                          <div className="grid grid-cols-2 gap-2 p-2.5 rounded-lg bg-[#1a2127] border border-[#232c33] text-xs mb-3">
+                          {/* 2x3 Stat grid */}
+                          <div className="grid grid-cols-2 gap-2 p-3 rounded-xl bg-sunken border border-line text-xs mb-3">
                             <div>
-                              <span className="text-[10px] text-slate-400 block">Context</span>
-                              <strong className="text-slate-200 font-mono">{tokens(model.contextWindow)}</strong>
+                              <span className="text-[10px] text-muted block">Context</span>
+                              <strong className="text-ink mono">{tokens(model.contextWindow)}</strong>
                             </div>
                             <div>
-                              <span className="text-[10px] text-slate-400 block">Output</span>
-                              <strong className="text-slate-200 font-mono">{tokens(model.maxOutput)}</strong>
+                              <span className="text-[10px] text-muted block">Output</span>
+                              <strong className="text-ink mono">{tokens(model.maxOutput)}</strong>
                             </div>
                             <div>
-                              <span className="text-[10px] text-slate-400 block">Input / 1M</span>
-                              <strong className="text-emerald-400 font-mono">{money(model.inputPricePerMillion)}</strong>
+                              <span className="text-[10px] text-muted block">Input / 1M</span>
+                              <strong className="text-ink mono">{money(model.inputPricePerMillion)}</strong>
                             </div>
                             <div>
-                              <span className="text-[10px] text-slate-400 block">Output / 1M</span>
-                              <strong className="text-slate-200 font-mono">{money(model.outputPricePerMillion)}</strong>
+                              <span className="text-[10px] text-muted block">Output / 1M</span>
+                              <strong className="text-ink mono">{money(model.outputPricePerMillion)}</strong>
                             </div>
                             <div>
-                              <span className="text-[10px] text-slate-400 block">Intelligence</span>
-                              <strong className="text-slate-200 font-mono">{model.intelligenceScore.toFixed(1)}/60</strong>
+                              <span className="text-[10px] text-muted block">Intelligence</span>
+                              <strong className="text-ink mono">{model.intelligenceScore.toFixed(1)}/60</strong>
                             </div>
                             <div>
-                              <span className="text-[10px] text-slate-400 block">Coding</span>
-                              <strong className="text-sky-300 font-mono">{model.codingScore.toFixed(1)}/60</strong>
+                              <span className="text-[10px] text-muted block">Coding</span>
+                              <strong className="text-ink mono">{model.codingScore.toFixed(1)}/60</strong>
                             </div>
                           </div>
                         </div>
 
-                        <div className="pt-2 border-t border-[#232c33] flex items-center justify-between text-xs">
-                          <span className="text-slate-400 text-[11px]">{model.providers.length} providers</span>
+                        <div className="pt-2 border-t border-line flex items-center justify-between text-xs">
+                          <span className="text-muted">{model.providers.length} providers</span>
                           <button
                             type="button"
                             onClick={() => updateSelection(model.id)}
-                            className="text-xs text-red-400 hover:text-red-300"
+                            className="text-xs text-red-500 hover:underline cursor-pointer bg-transparent border-none"
                           >
                             Remove
                           </button>
@@ -910,12 +949,12 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
                 <>
                   {/* Summary Cards */}
                   <section className="space-y-4">
-                    <div className="section-heading mb-2">
+                    <div className="flex items-center justify-between mb-2">
                       <div>
-                        <p className="kicker">OVERVIEW SNAPSHOT</p>
-                        <h2 className="text-xl font-bold text-white">Model Comparison Summary</h2>
+                        <p className="text-xs uppercase tracking-wider font-semibold text-muted">OVERVIEW SNAPSHOT</p>
+                        <h2 className="serif text-xl font-medium text-ink">Side-by-Side Model Summary</h2>
                       </div>
-                      <span className="pill text-xs font-mono text-emerald-400 border-emerald-500/20 bg-emerald-950/30">
+                      <span className="chip font-mono">
                         {selectedModels.length} models selected
                       </span>
                     </div>
@@ -925,49 +964,51 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
                         const isLowestIn = model.inputPricePerMillion === lowestInputRate;
                         const isLowestOut = model.outputPricePerMillion === lowestOutputRate;
                         return (
-                          <div className="summary-card" key={model.id}>
+                          <div className="p-5 rounded-2xl border border-line bg-surface" key={model.id}>
                             <div className="flex items-center justify-between mb-3 gap-2">
                               <div className="min-w-0">
-                                <h3 className="text-sm sm:text-base font-bold text-white tracking-tight truncate">
+                                <h3 className="serif text-base font-medium text-ink truncate">
                                   {model.name}
                                 </h3>
-                                <span className="text-xs text-slate-400 block">{model.lab}</span>
+                                <span className="text-xs text-muted block">{model.lab}</span>
                               </div>
-                              <span className="pill text-[10px] shrink-0">{model.weights}</span>
+                              <span className={`chip ${model.weights === "Open" ? "bg-[var(--tile-olive)]/60 text-[#2d3a12]" : ""}`}>
+                                {model.weights}
+                              </span>
                             </div>
 
-                            <div className="summary-price-box">
-                              <div className="mb-2">
-                                <span className="text-[11px] text-slate-400 block">Input rate</span>
+                            <div className="p-3 rounded-xl bg-sunken border border-line text-xs space-y-2 mb-3">
+                              <div>
+                                <span className="text-[10px] text-muted block">Input rate</span>
                                 <div className="flex items-baseline gap-1.5 flex-wrap">
-                                  <span className="text-xl sm:text-2xl font-bold font-mono text-white">
+                                  <span className="serif text-xl font-medium text-ink mono">
                                     {money(model.inputPricePerMillion)}
                                   </span>
-                                  <span className="text-xs text-slate-400">/ 1M</span>
-                                  {isLowestIn && <span className="badge badge-emerald shrink-0">Lowest</span>}
+                                  <span className="text-xs text-muted">/ 1M</span>
+                                  {isLowestIn && <span className="badge-lowest shrink-0">Lowest</span>}
                                 </div>
                               </div>
 
                               <div>
-                                <span className="text-[11px] text-slate-400 block">Output rate</span>
+                                <span className="text-[10px] text-muted block">Output rate</span>
                                 <div className="flex items-baseline gap-1.5 flex-wrap">
-                                  <span className="text-base sm:text-lg font-semibold font-mono text-slate-200">
+                                  <span className="serif text-base font-medium text-ink mono">
                                     {money(model.outputPricePerMillion)}
                                   </span>
-                                  <span className="text-xs text-slate-400">/ 1M</span>
-                                  {isLowestOut && <span className="badge badge-emerald shrink-0">Lowest</span>}
+                                  <span className="text-xs text-muted">/ 1M</span>
+                                  {isLowestOut && <span className="badge-lowest shrink-0">Lowest</span>}
                                 </div>
                               </div>
                             </div>
 
-                            <div className="mt-3 pt-3 border-t border-[#232c33] text-xs space-y-1.5">
-                              <div className="flex justify-between text-slate-400">
+                            <div className="text-xs space-y-1.5">
+                              <div className="flex justify-between text-muted">
                                 <span>Context Window:</span>
-                                <strong className="text-slate-200 font-mono">{tokens(model.contextWindow)}</strong>
+                                <strong className="text-ink mono">{tokens(model.contextWindow)}</strong>
                               </div>
-                              <div className="flex justify-between text-slate-400">
+                              <div className="flex justify-between text-muted">
                                 <span>Coding Score:</span>
-                                <strong className="text-sky-300 font-mono">{model.codingScore.toFixed(1)} / 60</strong>
+                                <strong className="text-ink mono">{model.codingScore.toFixed(1)} / 60</strong>
                               </div>
                             </div>
                           </div>
@@ -978,13 +1019,13 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
 
                   {/* Matrix Widget */}
                   <section className="space-y-3">
-                    <div className="section-heading mb-2">
+                    <div className="flex items-center justify-between mb-2">
                       <div>
-                        <p className="kicker">SPECIFICATIONS MATRIX</p>
-                        <h2 className="text-xl font-bold text-white">Side-by-Side Technical Comparison</h2>
+                        <p className="text-xs uppercase tracking-wider font-semibold text-muted">SPECIFICATIONS MATRIX</p>
+                        <h2 className="serif text-xl font-medium text-ink">Side-by-Side Technical Comparison</h2>
                       </div>
-                      <div className="flex items-center gap-1.5 text-xs text-slate-400 md:hidden bg-[#141a1f] px-2.5 py-1 rounded border border-[#232c33]">
-                        <MoveHorizontal size={14} className="text-emerald-400 shrink-0" />
+                      <div className="flex items-center gap-1.5 text-xs text-muted md:hidden bg-sunken px-2.5 py-1 rounded border border-line">
+                        <MoveHorizontal size={14} className="shrink-0" />
                         <span>Swipe sideways</span>
                       </div>
                     </div>
@@ -996,9 +1037,9 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
                             <th scope="col" className="spec-header-col">Specification</th>
                             {selectedModels.map((model) => (
                               <th scope="col" key={model.id} className="min-w-[170px]">
-                                <strong className="block text-white text-sm font-semibold">{model.name}</strong>
-                                <span className="muted block mt-0.5 text-xs">{model.lab}</span>
-                                <span className="text-slate-500 block mt-1.5 text-[11px]">
+                                <strong className="block text-ink text-sm font-semibold">{model.name}</strong>
+                                <span className="text-muted block mt-0.5 text-xs">{model.lab}</span>
+                                <span className="text-muted block mt-1.5 text-[11px]">
                                   Released: {model.releaseDate}
                                 </span>
                               </th>
@@ -1021,30 +1062,28 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
 
                   {/* Cost Estimator Widget */}
                   <section className="space-y-3">
-                    <div className="section-heading mb-2">
-                      <div>
-                        <p className="kicker">USAGE BILL PROJECTION</p>
-                        <h2 className="text-xl font-bold text-white">Interactive Cost Calculator</h2>
-                      </div>
+                    <div className="mb-2">
+                      <p className="text-xs uppercase tracking-wider font-semibold text-muted">USAGE BILL PROJECTION</p>
+                      <h2 className="serif text-xl font-medium text-ink">Interactive Cost Calculator</h2>
                     </div>
                     <CostCalculator selectedModels={selectedModels} />
                   </section>
                 </>
               )}
 
-              {/* VIEW: COMPARE ONLY */}
+              {/* COMPARE ONLY */}
               {activeView === "compare" && (
                 <section className="space-y-4">
-                  <div className="section-heading mb-4">
+                  <div className="flex items-center justify-between mb-4">
                     <div>
-                      <p className="kicker">FULL MATRIX</p>
-                      <h2 className="text-xl sm:text-2xl font-bold text-white">Technical Comparison Matrix</h2>
-                      <p className="text-xs text-slate-400 mt-1">
+                      <p className="text-xs uppercase tracking-wider font-semibold text-muted">FULL MATRIX</p>
+                      <h2 className="serif text-2xl font-medium text-ink">Technical Comparison Matrix</h2>
+                      <p className="text-xs text-muted mt-1">
                         Inspect specifications, benchmarks, modalities, and price highlights side by side.
                       </p>
                     </div>
-                    <div className="flex items-center gap-1.5 text-xs text-slate-400 md:hidden bg-[#141a1f] px-2.5 py-1 rounded border border-[#232c33]">
-                      <MoveHorizontal size={14} className="text-emerald-400 shrink-0" />
+                    <div className="flex items-center gap-1.5 text-xs text-muted md:hidden bg-sunken px-2.5 py-1 rounded border border-line">
+                      <MoveHorizontal size={14} className="shrink-0" />
                       <span>Swipe sideways</span>
                     </div>
                   </div>
@@ -1056,9 +1095,9 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
                           <th scope="col" className="spec-header-col">Specification</th>
                           {selectedModels.map((model) => (
                             <th scope="col" key={model.id} className="min-w-[170px]">
-                              <strong className="block text-white text-sm font-semibold">{model.name}</strong>
-                              <span className="muted block mt-0.5 text-xs">{model.lab}</span>
-                              <span className="text-slate-500 block mt-1.5 text-[11px]">
+                              <strong className="block text-ink text-sm font-semibold">{model.name}</strong>
+                              <span className="text-muted block mt-0.5 text-xs">{model.lab}</span>
+                              <span className="text-muted block mt-1.5 text-[11px]">
                                 Released: {model.releaseDate}
                               </span>
                             </th>
@@ -1084,40 +1123,38 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
                 </section>
               )}
 
-              {/* VIEW: ESTIMATOR ONLY */}
+              {/* ESTIMATOR ONLY */}
               {activeView === "estimator" && (
                 <section className="space-y-4">
-                  <div className="section-heading mb-4">
-                    <div>
-                      <p className="kicker">FINANCIAL ESTIMATION</p>
-                      <h2 className="text-xl sm:text-2xl font-bold text-white">Monthly API Cost Estimator</h2>
-                      <p className="text-xs text-slate-400 mt-1">
-                        Adjust token volume controls or pick quick workload presets to simulate monthly spend.
-                      </p>
-                    </div>
+                  <div className="mb-4">
+                    <p className="text-xs uppercase tracking-wider font-semibold text-muted">FINANCIAL ESTIMATION</p>
+                    <h2 className="serif text-2xl font-medium text-ink">Monthly API Cost Estimator</h2>
+                    <p className="text-xs text-muted mt-1">
+                      Adjust token volume controls or pick quick workload presets to simulate monthly spend.
+                    </p>
                   </div>
                   <CostCalculator selectedModels={selectedModels} />
                 </section>
               )}
 
-              {/* VIEW: DETAILS ONLY */}
+              {/* DETAILS ONLY */}
               {activeView === "details" && (
                 <section>
                   <ModelDetails selectedModels={selectedModels} />
                 </section>
               )}
 
-              {/* VIEW: ABOUT & METHODOLOGY */}
+              {/* ABOUT & METHODOLOGY */}
               {activeView === "about" && (
-                <section className="panel p-6 sm:p-8 space-y-4 max-w-3xl">
-                  <p className="kicker">ASSESSMENT METHODOLOGY</p>
-                  <h2 className="text-2xl font-bold text-white">Make the assumptions visible.</h2>
-                  <p className="text-sm text-slate-300 leading-relaxed">
-                    The comparison experience uses an illustrative local catalog. Prices, provider listings, release dates, and benchmark scores are demonstration data designed for this Frontend Engineering Assessment, not verified live provider feeds.
+                <section className="p-6 sm:p-8 rounded-2xl border border-line bg-surface space-y-4 max-w-3xl">
+                  <p className="text-xs uppercase tracking-wider font-semibold text-muted">ASSESSMENT METHODOLOGY</p>
+                  <h2 className="serif text-2xl font-medium text-ink">Make the assumptions visible.</h2>
+                  <p className="text-sm text-ink-2 leading-relaxed">
+                    The comparison experience uses an illustrative local catalog. Prices, provider listings, release dates, and benchmark scores are demonstration data designed for this Frontend Engineering Assessment.
                   </p>
-                  <div className="pt-4 border-t border-[#232c33] space-y-2 text-xs text-slate-400">
+                  <div className="pt-4 border-t border-line space-y-2 text-xs text-muted">
                     <p>• <strong>Stack</strong>: Next.js 16 App Router, React 19, TypeScript, Tailwind CSS 4.</p>
-                    <p>• <strong>Theme</strong>: OneAtlas Dark design system per <code>design.md</code> spec.</p>
+                    <p>• <strong>Theme</strong>: OneAtlas warm cream/charcoal design system with pastel tiles.</p>
                     <p>• <strong>URL State</strong>: Active selection synchronizes to <code>/compare?models=...</code> via <code>history.replaceState</code>.</p>
                     <p>• <strong>Cost Formula</strong>: <code>(input ÷ 1M × input rate) + (output ÷ 1M × output rate)</code>.</p>
                   </div>
@@ -1126,20 +1163,17 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
             </div>
           )}
 
-          {/* Disclaimer & Footer */}
-          <aside className="notice my-8">
-            <strong>Data limitations & disclaimer:</strong> All model records, prices, benchmark scores, and provider lists are illustrative assessment sample data. Verify current provider specifications before production reliance.
-          </aside>
-
-          <footer className="footer">
-            <BrandLogo />
-            <span className="text-center sm:text-left text-xs text-slate-400">
-              Every AI model, side by side. · OneAtlas Dark Specification · Updated Oct 27, 2026
-            </span>
+          {/* Footer */}
+          <footer className="mt-12 pt-6 border-t border-line flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted">
+            <div className="flex items-center gap-2">
+              <BrandLogo />
+              <span>· An independent directory of AI models.</span>
+            </div>
+            <span>Frontend Engineering Assessment · Next.js 16 + React 19 + Tailwind CSS 4</span>
             <button
               type="button"
               onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-              className="hover:text-emerald-300 text-xs whitespace-nowrap bg-transparent border-0 cursor-pointer p-0 text-slate-400"
+              className="hover:text-ink cursor-pointer bg-transparent border-none text-muted p-0"
             >
               Back to top ↑
             </button>
@@ -1147,7 +1181,7 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
         </main>
       </div>
 
-      {/* COMMAND PALETTE (⌘K) MODAL per design.md §6.9 */}
+      {/* COMMAND PALETTE (⌘K) MODAL */}
       {cmdkOpen && (
         <div
           className="cmdk-backdrop"
@@ -1160,22 +1194,20 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
             className="cmdk-modal"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-3.5 border-b border-[#232c33] flex items-center gap-2.5">
-              <Search size={16} className="text-emerald-400 shrink-0" />
+            <div className="p-3.5 border-b border-line flex items-center gap-2.5">
+              <Search size={16} className="text-muted shrink-0" />
               <input
                 autoFocus
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search models, labs, providers... (Press Esc to close)"
-                className="w-full bg-transparent text-sm text-slate-100 placeholder-slate-500 focus:outline-none"
+                placeholder="Search models, labs, providers… (Press Esc to close)"
+                className="w-full bg-transparent text-sm text-ink placeholder:text-muted focus:outline-none"
               />
-              <kbd className="text-[10px] bg-[#141a1f] border border-[#232c33] px-1.5 py-0.5 rounded text-slate-400 font-mono">
-                ESC
-              </kbd>
+              <span className="kbd">ESC</span>
             </div>
 
             <div className="max-h-[360px] overflow-y-auto p-2">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500 px-2 py-1 block">
+              <span className="text-[10px] uppercase font-semibold tracking-wider text-muted px-2 py-1 block">
                 Models ({filteredModels.length})
               </span>
               <div className="space-y-1">
@@ -1184,30 +1216,34 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
                   return (
                     <div
                       key={m.id}
-                      onClick={() => {
-                        updateSelection(m.id);
-                      }}
+                      onClick={() => updateSelection(m.id)}
                       className={`flex items-center justify-between p-2.5 rounded-lg cursor-pointer transition-colors ${
                         isSelected
-                          ? "bg-emerald-950/40 border border-emerald-500/30 text-white"
-                          : "hover:bg-[#141a1f] text-slate-300"
+                          ? "bg-sunken border border-line text-ink"
+                          : "hover:bg-sunken/60 text-ink-2"
                       }`}
                     >
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <strong className="text-xs font-semibold">{m.name}</strong>
-                          <span className="text-[10px] text-slate-400 font-mono">({m.lab})</span>
-                          {isSelected && (
-                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500 text-slate-950 font-bold">
-                              ACTIVE
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[11px] text-slate-500 mt-0.5 font-mono">
-                          {money(m.inputPricePerMillion)} in / {money(m.outputPricePerMillion)} out · {tokens(m.contextWindow)} ctx
+                      <div className="flex items-center gap-3">
+                        <span
+                          className="h-2.5 w-2.5 rounded-full shrink-0"
+                          style={{ background: labColors[m.lab] || "#6b6a64" }}
+                        />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <strong className="text-xs font-semibold">{m.name}</strong>
+                            <span className="text-[10px] text-muted mono">({m.lab})</span>
+                            {isSelected && (
+                              <span className="badge-lowest text-[9px] py-0 px-1.5">
+                                ACTIVE
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-muted mt-0.5 mono">
+                            {money(m.inputPricePerMillion)} in / {money(m.outputPricePerMillion)} out · {tokens(m.contextWindow)} ctx
+                          </div>
                         </div>
                       </div>
-                      <span className="text-xs font-mono text-emerald-400">
+                      <span className="text-xs mono text-ink">
                         {isSelected ? "Remove" : "+ Compare"}
                       </span>
                     </div>

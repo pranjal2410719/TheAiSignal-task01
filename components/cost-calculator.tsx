@@ -37,44 +37,44 @@ export function CostCalculator({ selectedModels }: { selectedModels: ModelRecord
 
   if (selectedModels.length < 2) {
     return (
-      <div className="panel p-5 sm:p-6 text-sm text-slate-400 text-center border-dashed">
+      <div className="p-6 rounded-2xl border border-line bg-surface text-sm text-muted text-center border-dashed">
         Select at least two models to estimate and compare monthly costs.
       </div>
     );
   }
 
   return (
-    <div className="w-full space-y-5 sm:space-y-6">
-      {/* Best value highlight banner */}
+    <div className="w-full space-y-6">
+      {/* Best value highlight tile */}
       {cheapest && (
-        <div className="best-value-banner">
+        <div className="tile p-5 sm:p-6" data-tone="cactus">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-start sm:items-center gap-3">
-              <div className="best-value-icon">
-                <Sparkles size={18} className="text-emerald-400" />
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-black/10 dark:bg-white/10">
+                <Sparkles size={18} />
               </div>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="kicker">Lowest Estimated Cost</span>
-                  <span className="badge badge-emerald">Best Value</span>
+                  <span className="text-[11px] uppercase tracking-wider font-semibold opacity-75">Lowest Estimated Cost</span>
+                  <span className="badge-lowest">Best Value</span>
                 </div>
-                <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-white mt-0.5 break-words">
+                <h3 className="serif text-2xl sm:text-3xl font-medium tracking-tight mt-0.5 break-words">
                   {formatMoney(cheapest.total)}{" "}
-                  <span className="text-xs font-normal text-slate-400">/ month</span>
+                  <span className="text-xs font-normal opacity-70">/ month</span>
                 </h3>
-                <p className="text-xs text-slate-300 truncate">
-                  Powered by <strong className="text-white">{cheapest.model.name}</strong> ({cheapest.model.lab})
+                <p className="text-xs opacity-80 truncate">
+                  Lowest bill: <strong>{cheapest.model.name}</strong> ({cheapest.model.lab})
                 </p>
               </div>
             </div>
 
             {nextCheapest && (
-              <div className="bg-slate-900/80 md:bg-transparent p-3 md:p-0 rounded-lg border md:border-0 border-slate-800 shrink-0">
-                <span className="text-xs text-slate-400 block">Monthly savings vs next cheapest:</span>
-                <span className="text-base sm:text-lg font-bold text-emerald-400 block font-mono">
+              <div className="panel p-3 rounded-xl shrink-0">
+                <span className="text-[11px] block opacity-75">Monthly savings vs next cheapest:</span>
+                <span className="serif text-lg font-semibold block mono">
                   {formatMoney(nextCheapest.total - cheapest.total)}
                 </span>
-                <span className="text-[11px] text-slate-400 block truncate">
+                <span className="text-[10px] block opacity-70 truncate">
                   vs {nextCheapest.model.name}
                 </span>
               </div>
@@ -83,183 +83,197 @@ export function CostCalculator({ selectedModels }: { selectedModels: ModelRecord
         </div>
       )}
 
-      {/* Main Grid: Controls and Results */}
-      <div className="cost-grid">
-        {/* Controls Panel */}
-        <div className="panel cost-controls">
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-            <div>
-              <p className="kicker">USAGE ASSUMPTIONS</p>
-              <h3 className="text-base font-semibold text-white">Monthly Token Volume</h3>
-            </div>
-            <span className="pill text-xs">Per Month</span>
-          </div>
+      {/* Preset Workloads */}
+      <div className="p-5 rounded-2xl border border-line bg-surface">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted">
+            Quick Workload Presets
+          </span>
+          <span className="text-xs text-muted">
+            Synchronized 0 – 100M tokens
+          </span>
+        </div>
 
-          {/* Quick Presets */}
-          <div className="mb-6">
-            <label className="text-xs text-slate-400 block mb-2 font-medium">Quick Workload Presets</label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {PRESETS.map((preset) => {
-                const isActive = inputTokens === preset.inTokens && outputTokens === preset.outTokens;
-                return (
-                  <button
-                    key={preset.label}
-                    type="button"
-                    onClick={() => {
-                      setInputTokens(preset.inTokens);
-                      setOutputTokens(preset.outTokens);
-                    }}
-                    className={`preset-btn ${isActive ? "preset-btn-active" : ""}`}
-                  >
-                    <span className="font-semibold block text-xs">{preset.label}</span>
-                    <span className="text-[10px] opacity-75 block">{preset.desc}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          {PRESETS.map((preset) => {
+            const isMatch = inputTokens === preset.inTokens && outputTokens === preset.outTokens;
+            return (
+              <button
+                key={preset.label}
+                type="button"
+                onClick={() => {
+                  setInputTokens(preset.inTokens);
+                  setOutputTokens(preset.outTokens);
+                }}
+                className={`p-3 rounded-xl border text-left transition-all ${
+                  isMatch
+                    ? "border-ink bg-ink text-on-ink shadow-sm"
+                    : "border-line bg-surface text-ink hover:bg-sunken"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <strong className="text-sm font-semibold">{preset.label}</strong>
+                  <Zap size={12} className={isMatch ? "text-on-ink" : "text-muted"} />
+                </div>
+                <span className="text-[11px] opacity-75 block font-mono">{preset.desc}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-          {/* Input Tokens */}
-          <div className="token-control">
-            <label htmlFor="input-token-range" className="flex flex-wrap items-center justify-between gap-2">
-              <span className="flex items-center gap-1.5 text-xs sm:text-sm">
-                <Zap size={14} className="text-emerald-400 shrink-0" />
-                Input tokens / month
-              </span>
-              <strong className="text-emerald-400 font-mono text-xs sm:text-sm">
-                {inputTokens.toLocaleString("en-US")}
-              </strong>
+      {/* Dual Token Controls Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Input tokens slider */}
+        <div className="p-5 rounded-2xl border border-line bg-surface">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <label htmlFor="input-tokens" className="text-sm font-semibold text-ink">
+              Monthly Input Tokens
             </label>
-            <input
-              id="input-token-range"
-              type="range"
-              min={0}
-              max={MAX_TOKENS}
-              step={STEP_TOKENS}
-              value={inputTokens}
-              onChange={(e) => setInputTokens(clampTokens(Number(e.target.value)))}
-              aria-label="Monthly input tokens slider"
-              className="w-full"
-            />
-            <div className="mt-2 flex items-center gap-2">
+            <div className="field h-8 px-2 w-36">
               <input
-                className="field w-full font-mono text-sm"
+                id="input-tokens-num"
                 type="number"
                 min={0}
                 max={MAX_TOKENS}
                 step={STEP_TOKENS}
                 value={inputTokens}
                 onChange={(e) => setInputTokens(clampTokens(Number(e.target.value)))}
-                aria-label="Monthly input token count"
+                className="w-full bg-transparent text-right font-mono text-xs text-ink outline-none"
               />
-              <span className="text-xs text-slate-500 whitespace-nowrap">tokens</span>
             </div>
           </div>
 
-          {/* Output Tokens */}
-          <div className="token-control">
-            <label htmlFor="output-token-range" className="flex flex-wrap items-center justify-between gap-2">
-              <span className="flex items-center gap-1.5 text-xs sm:text-sm">
-                <Zap size={14} className="text-emerald-400 shrink-0" />
-                Output tokens / month
-              </span>
-              <strong className="text-emerald-400 font-mono text-xs sm:text-sm">
-                {outputTokens.toLocaleString("en-US")}
-              </strong>
+          <p className="text-xs text-muted mb-4">
+            Prompts, documents, system instructions, and context history.
+          </p>
+
+          <input
+            id="input-tokens"
+            type="range"
+            min={0}
+            max={MAX_TOKENS}
+            step={STEP_TOKENS}
+            value={inputTokens}
+            onChange={(e) => setInputTokens(clampTokens(Number(e.target.value)))}
+            className="cost-slider"
+          />
+
+          <div className="flex justify-between text-[11px] text-muted font-mono mt-2">
+            <span>0</span>
+            <span>25M</span>
+            <span>50M</span>
+            <span>75M</span>
+            <span>100M</span>
+          </div>
+        </div>
+
+        {/* Output tokens slider */}
+        <div className="p-5 rounded-2xl border border-line bg-surface">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <label htmlFor="output-tokens" className="text-sm font-semibold text-ink">
+              Monthly Output Tokens
             </label>
-            <input
-              id="output-token-range"
-              type="range"
-              min={0}
-              max={MAX_TOKENS}
-              step={STEP_TOKENS}
-              value={outputTokens}
-              onChange={(e) => setOutputTokens(clampTokens(Number(e.target.value)))}
-              aria-label="Monthly output tokens slider"
-              className="w-full"
-            />
-            <div className="mt-2 flex items-center gap-2">
+            <div className="field h-8 px-2 w-36">
               <input
-                className="field w-full font-mono text-sm"
+                id="output-tokens-num"
                 type="number"
                 min={0}
                 max={MAX_TOKENS}
                 step={STEP_TOKENS}
                 value={outputTokens}
                 onChange={(e) => setOutputTokens(clampTokens(Number(e.target.value)))}
-                aria-label="Monthly output token count"
+                className="w-full bg-transparent text-right font-mono text-xs text-ink outline-none"
               />
-              <span className="text-xs text-slate-500 whitespace-nowrap">tokens</span>
             </div>
           </div>
 
-          <p className="muted text-xs leading-5 pt-3 border-t border-slate-800">
-            Formula: (input tokens ÷ 1M × input rate) + (output tokens ÷ 1M × output rate).
-            Estimates exclude caching discounts, batch API tiers, taxes, and provider fees.
+          <p className="text-xs text-muted mb-4">
+            Generated responses, summaries, code, and agent actions.
           </p>
-        </div>
 
-        {/* Results Panel */}
-        <div className="panel cost-results">
-          <div className="section-heading mb-4">
-            <div>
-              <p className="kicker">ESTIMATED MONTHLY SPEND</p>
-              <h2 className="text-lg sm:text-xl font-semibold text-white">Cost Breakdown by Model</h2>
-            </div>
-            <span className="pill font-mono text-xs">USD</span>
+          <input
+            id="output-tokens"
+            type="range"
+            min={0}
+            max={MAX_TOKENS}
+            step={STEP_TOKENS}
+            value={outputTokens}
+            onChange={(e) => setOutputTokens(clampTokens(Number(e.target.value)))}
+            className="cost-slider"
+          />
+
+          <div className="flex justify-between text-[11px] text-muted font-mono mt-2">
+            <span>0</span>
+            <span>25M</span>
+            <span>50M</span>
+            <span>75M</span>
+            <span>100M</span>
           </div>
+        </div>
+      </div>
 
-          <div className="divide-y divide-slate-800/80">
-            {costs.map(({ model, total }, index) => {
-              const isLowest = index === 0;
-              const diffFromCheapest = total - cheapest.total;
-              return (
-                <div className="cost-line py-3.5" key={model.id}>
-                  <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 pr-2">
-                    <span className="text-xs font-mono text-slate-500 w-4 shrink-0">#{index + 1}</span>
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <strong className="text-xs sm:text-sm text-white truncate max-w-[150px] sm:max-w-none">
-                          {model.name}
-                        </strong>
-                        {isLowest && <span className="badge badge-emerald shrink-0">Lowest bill</span>}
-                      </div>
-                      <span className="muted text-[11px] block">{model.lab}</span>
+      {/* Projected Monthly Bills Table */}
+      <div className="p-5 rounded-2xl border border-line bg-surface">
+        <h4 className="text-sm font-semibold text-ink mb-4">
+          Projected Monthly Bills ({costs.length} models)
+        </h4>
+
+        <div className="space-y-2.5">
+          {costs.map(({ model, total }, index) => {
+            const isLowest = index === 0;
+            const delta = total - (cheapest?.total ?? 0);
+
+            return (
+              <div
+                key={model.id}
+                className={`flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl border transition-all ${
+                  isLowest
+                    ? "border-line bg-sunken"
+                    : "border-line bg-surface hover:bg-sunken/60"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="mono text-xs text-muted w-5">#{index + 1}</span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <strong className="text-sm font-semibold text-ink">{model.name}</strong>
+                      <span className="text-xs text-muted">({model.lab})</span>
+                      {isLowest && <span className="badge-lowest">Lowest Bill</span>}
                     </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <strong className="text-base sm:text-lg font-bold font-mono text-white block">
-                      {formatMoney(total)}
-                    </strong>
-                    {!isLowest && (
-                      <span className="block text-[11px] sm:text-xs text-emerald-400 font-medium">
-                        +{formatMoney(diffFromCheapest)}
-                      </span>
-                    )}
+                    <span className="text-[11px] text-muted font-mono block mt-0.5">
+                      ${model.inputPricePerMillion.toFixed(2)} in / ${model.outputPricePerMillion.toFixed(2)} out per 1M
+                    </span>
                   </div>
                 </div>
-              );
-            })}
-          </div>
 
-          {cheapest && nextCheapest && (
-            <div className="savings-callout mt-5">
-              <TrendingDown size={18} className="text-emerald-400 shrink-0 mt-0.5" />
-              <p className="text-xs text-slate-200 leading-relaxed">
-                Choosing <strong className="text-white">{cheapest.model.name}</strong> instead of{" "}
-                <strong className="text-white">{nextCheapest.model.name}</strong> saves an estimated{" "}
-                <strong className="text-emerald-300 font-semibold font-mono">
-                  {formatMoney(nextCheapest.total - cheapest.total)}
-                </strong>{" "}
-                per month for this usage pattern.
-              </p>
-            </div>
-          )}
-
-          <p className="muted mt-4 text-[11px] text-slate-500">
-            Illustrative assessment dataset. Verify current provider pricing before production commitments.
-          </p>
+                <div className="mt-2 sm:mt-0 text-left sm:text-right">
+                  <span className="serif text-xl font-medium text-ink block mono">
+                    {formatMoney(total)}
+                  </span>
+                  <span className="text-[11px] text-muted block">
+                    {isLowest ? (
+                      <span className="text-ink font-medium">★ Lowest monthly cost</span>
+                    ) : (
+                      <span>+{formatMoney(delta)} vs lowest</span>
+                    )}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
         </div>
+      </div>
+
+      {/* Transparent Formula Callout */}
+      <div className="p-4 rounded-xl border border-line bg-sunken flex items-center gap-3 text-xs text-muted">
+        <TrendingDown size={16} className="text-ink shrink-0" />
+        <span>
+          Cost formula:{" "}
+          <code className="text-ink font-mono font-medium">
+            (inputTokens ÷ 1,000,000 × inputRate) + (outputTokens ÷ 1,000,000 × outputRate)
+          </code>
+        </span>
       </div>
     </div>
   );
