@@ -857,17 +857,19 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   {availableModels.map((model) => (
-                    <button
-                      key={model.id}
-                      type="button"
-                      disabled={selectedIds.length >= MAX_SELECTED_MODELS}
-                      onClick={() => updateSelection(model.id)}
-                      className="text-xs py-1.5 px-3 rounded-lg border border-line bg-surface hover:bg-sunken text-ink disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
-                    >
-                      <span className="font-bold mr-1">+</span>
-                      <span>{model.name}</span>
-                      <span className="text-muted text-[11px] ml-1">· {model.lab}</span>
-                    </button>
+                    <div key={model.id} className="flex items-center gap-2 rounded-lg border border-line bg-surface px-2 py-1">
+                      <button
+                        type="button"
+                        disabled={selectedIds.length >= MAX_SELECTED_MODELS}
+                        onClick={() => updateSelection(model.id)}
+                        className="text-xs py-1 px-1 text-ink disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                      >
+                        <span className="font-bold mr-1">+</span>
+                        <span>{model.name}</span>
+                        <span className="text-muted text-[11px] ml-1">· {model.lab}</span>
+                      </button>
+                      <a href={`/playground?catalogModel=${encodeURIComponent(model.id)}`} className="whitespace-nowrap text-[11px] font-semibold text-accent hover:underline">Try in Playground</a>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -939,7 +941,7 @@ export function ModelComparison({ basePath, initialLaunched = false }: ModelComp
                         <div className="pt-2 border-t border-line flex flex-wrap items-center justify-between gap-2 text-xs">
                           <span className="text-muted">{model.providers.length} providers</span>
                           <div className="flex items-center gap-3">
-                            <a href="/playground" className="font-semibold text-accent hover:underline">Try in Playground</a>
+                            <a href={`/playground?catalogModel=${encodeURIComponent(model.id)}`} className="font-semibold text-accent hover:underline">Try in Playground</a>
                             <button
                             type="button"
                             onClick={() => updateSelection(model.id)}
